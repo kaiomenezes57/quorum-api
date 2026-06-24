@@ -1,1 +1,8 @@
-<Solution />
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Quorum.Api/Quorum.Api.csproj" Id="10325029-bd5e-4683-9315-5b6cb3842eae" />
+    <Project Path="src/Quorum.Application/Quorum.Application.csproj" Id="9e5f1188-6fb2-42a7-9739-33eae331ca43" />
+    <Project Path="src/Quorum.Domain/Quorum.Domain.csproj" Id="44f45174-f29a-4db6-8282-e9a97614c415" />
+    <Project Path="src/Quorum.Infrastructure/Quorum.Infrastructure.csproj" Id="ae5e1b6e-6ba3-4d27-83ce-0249f91aac2f" />
+  </Folder>
+</Solution>
