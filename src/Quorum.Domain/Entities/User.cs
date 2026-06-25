@@ -7,7 +7,9 @@
         public string Email { get; private set; }
 
         public IReadOnlyList<Poll> Polls => _polls.AsReadOnly();
-        private readonly List<Poll> _polls;
+        private readonly List<Poll> _polls = [];
+
+        private User() { }
 
         public User(string username, string email)
         {

@@ -25,6 +25,8 @@ namespace Quorum.Domain.Entities
         public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
         private readonly List<Vote> _votes = [];
 
+        private Poll() { }
+
         public Poll(string name, string description, User owner, int votesTarget, List<Option> options)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(name);

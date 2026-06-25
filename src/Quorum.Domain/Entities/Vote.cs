@@ -15,6 +15,8 @@
 
         public DateTime VoteDate { get; private set; }
 
+        private Vote() { }
+
         public Vote(User voter, Poll poll, Option option)
         {
             Id = Guid.CreateVersion7();
