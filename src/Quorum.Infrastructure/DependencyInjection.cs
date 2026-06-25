@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Quorum.Application.Interfaces;
+using Quorum.Domain.Repositories;
 using Quorum.Infrastructure.Persistence;
 using Quorum.Infrastructure.Persistence.Repositories;
 

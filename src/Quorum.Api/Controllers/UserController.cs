@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Quorum.Application.Commands.Users;
-using Quorum.Application.Queries.Users;
+using Quorum.Application.Features.Users.Commands.CreateUser;
+using Quorum.Application.Features.Users.Queries.GetUserById;
 
 namespace Quorum.Api.Controllers
 {

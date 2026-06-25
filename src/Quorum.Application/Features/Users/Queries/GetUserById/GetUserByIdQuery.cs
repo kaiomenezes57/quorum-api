@@ -1,8 +1,7 @@
 ﻿using MediatR;
-using Quorum.Application.DTOs.Users;
-using Quorum.Application.Interfaces;
+using Quorum.Domain.Repositories;
 
-namespace Quorum.Application.Queries.Users
+namespace Quorum.Application.Features.Users.Queries.GetUserById
 {
     public record GetUserByIdQuery(Guid Id) : IRequest<UserResponseDto?>;
 

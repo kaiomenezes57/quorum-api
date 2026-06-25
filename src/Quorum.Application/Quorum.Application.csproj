@@ -14,4 +14,8 @@
     <ProjectReference Include="..\Quorum.Domain\Quorum.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Votes\Commands\" />
+  </ItemGroup>
+
 </Project>

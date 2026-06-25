@@ -1,10 +1,9 @@
 ﻿using MediatR;
-using Quorum.Application.DTOs.Options;
-using Quorum.Application.DTOs.Polls;
-using Quorum.Application.DTOs.Votes;
-using Quorum.Application.Interfaces;
+using Quorum.Application.Features.Options.Queries;
+using Quorum.Application.Features.Votes.Queries;
+using Quorum.Domain.Repositories;
 
-namespace Quorum.Application.Queries.Polls
+namespace Quorum.Application.Features.Polls.Queries.GetPollById
 {
     public sealed class GetPollByIdQueryHandler : IRequestHandler<GetPollByIdQuery, PollResponseDto?>
     {

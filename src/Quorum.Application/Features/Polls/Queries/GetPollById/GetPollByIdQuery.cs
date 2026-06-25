@@ -1,7 +1,6 @@
 ﻿using MediatR;
-using Quorum.Application.DTOs.Polls;
 
-namespace Quorum.Application.Queries.Polls
+namespace Quorum.Application.Features.Polls.Queries.GetPollById
 {
     public record GetPollByIdQuery(
         Guid Id) : IRequest<PollResponseDto>;

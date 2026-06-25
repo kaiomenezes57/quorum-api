@@ -1,8 +1,8 @@
-﻿using Quorum.Application.DTOs.Options;
-using Quorum.Application.DTOs.Votes;
+﻿using Quorum.Application.Features.Options.Queries;
+using Quorum.Application.Features.Votes.Queries;
 using Quorum.Domain.Entities;
 
-namespace Quorum.Application.DTOs.Polls
+namespace Quorum.Application.Features.Polls.Queries.GetPollById
 {
     public record PollResponseDto(
         string Name, 

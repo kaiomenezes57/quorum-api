@@ -1,6 +1,6 @@
 ﻿using Quorum.Domain.Entities;
 
-namespace Quorum.Application.Interfaces
+namespace Quorum.Domain.Repositories
 {
     public interface IPollRepository
     {

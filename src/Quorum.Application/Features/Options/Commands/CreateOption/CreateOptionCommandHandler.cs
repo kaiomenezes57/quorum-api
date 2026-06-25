@@ -1,8 +1,9 @@
 ﻿using MediatR;
 using Quorum.Application.Interfaces;
 using Quorum.Domain.Entities;
+using Quorum.Domain.Repositories;
 
-namespace Quorum.Application.Commands.Options
+namespace Quorum.Application.Features.Options.Commands.CreateOption
 {
     public sealed class CreateOptionCommandHandler : IRequestHandler<CreateOptionCommand, Guid>
     {

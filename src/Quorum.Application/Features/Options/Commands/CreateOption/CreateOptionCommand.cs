@@ -1,6 +1,6 @@
 ﻿using MediatR;
 
-namespace Quorum.Application.Commands.Options
+namespace Quorum.Application.Features.Options.Commands.CreateOption
 {
     public record CreateOptionCommand(
         string Name,

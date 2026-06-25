@@ -1,5 +1,5 @@
-﻿using Quorum.Application.Interfaces;
-using Quorum.Domain.Entities;
+﻿using Quorum.Domain.Entities;
+using Quorum.Domain.Repositories;
 
 namespace Quorum.Infrastructure.Persistence.Repositories
 {

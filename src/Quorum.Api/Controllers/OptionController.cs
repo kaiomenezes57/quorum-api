@@ -1,6 +1,6 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Quorum.Application.Commands.Options;
+using Quorum.Application.Features.Options.Commands.CreateOption;
 
 namespace Quorum.Api.Controllers
 {
