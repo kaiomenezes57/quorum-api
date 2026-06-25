@@ -24,7 +24,6 @@ namespace Quorum.Infrastructure
 
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IPollRepository, PollRepository>();
-            services.AddScoped<IOptionRepository, OptionRepository>();
 
             return services;
         }

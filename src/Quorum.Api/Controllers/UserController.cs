@@ -6,11 +6,11 @@ using Quorum.Application.Features.Users.Queries.GetUserById;
 namespace Quorum.Api.Controllers
 {
     [ApiController]
-    [Route("api/v1/users")]
+    [Route("api/users")]
     public sealed class UserController(IMediator mediator) : Controller
     {
         [HttpPost]
-        public async Task<IActionResult> Post(CreateUserCommand command)
+        public async Task<IActionResult> Post([FromBody] CreateUserCommand command)
         {
             var id = await mediator.Send(command);
             if (id.Equals(default))

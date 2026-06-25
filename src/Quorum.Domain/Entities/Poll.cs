@@ -10,7 +10,7 @@ namespace Quorum.Domain.Entities
         public string Description { get; private set; }
 
         public Guid OwnerId { get; private set; }
-        public User Owner { get; private set; }
+        public User Owner { get; private set; } = null!;
 
         public PollStatus Status { get; private set; }
         public int VotesTarget { get; private set; }
@@ -27,12 +27,10 @@ namespace Quorum.Domain.Entities
 
         private Poll() { }
 
-        public Poll(string name, string description, User owner, int votesTarget)
+        public Poll(string name, string description, Guid ownerId, int votesTarget)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(name);
             ArgumentException.ThrowIfNullOrWhiteSpace(description);
-
-            ArgumentNullException.ThrowIfNull(owner);
 
             ArgumentOutOfRangeException.ThrowIfLessThan(votesTarget, 3);
 
@@ -41,8 +39,7 @@ namespace Quorum.Domain.Entities
             Name = name;
             Description = description;
 
-            OwnerId = owner.Id;
-            Owner = owner;
+            OwnerId = ownerId;
 
             Status = PollStatus.Open;
             VotesTarget = votesTarget;
@@ -51,18 +48,35 @@ namespace Quorum.Domain.Entities
             LastModifierDate = DateTime.UtcNow;
         }
 
-        public void AddOption(Option option)
+        public Option AddOption(string optionName)
         {
+            if (_options.Any(x => x.Name == optionName))
+                throw new Exception("Given option name already exists.");
+
+            var option = new Option(
+                optionName,
+                Id);
+
             _options.Add(option);
+
+            return option;
         }
 
-        public void AddVote(Vote vote)
+        public Vote AddVote(Guid voterId, Guid optionId)
         {
             if (Status == PollStatus.Closed)
-                return;
+                throw new Exception("Não é possível votar em uma enquete encerrada.");
 
-            if (_votes.Any(x => x.VoterId == vote.VoterId))
-                return;
+            if (_votes.Any(x => x.VoterId == voterId))
+                throw new Exception("Este usuário já votou nesta enquete.");
+
+            if (!_options.Any(x => x.Id == optionId))
+                throw new Exception("A opção selecionada não pertence a esta enquete.");
+
+            var vote = new Vote(
+                voterId: voterId,
+                pollId: Id,
+                optionId: optionId);
 
             _votes.Add(vote);
 
@@ -70,6 +84,8 @@ namespace Quorum.Domain.Entities
 
             if (_votes.Count >= VotesTarget)
                 EndPoll();
+
+            return vote;
         }
 
         public bool EndPoll()

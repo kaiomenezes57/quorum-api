@@ -1,6 +1,5 @@
 ﻿using Quorum.Application.Features.Options.Queries;
 using Quorum.Application.Features.Votes.Queries;
-using Quorum.Domain.Entities;
 
 namespace Quorum.Application.Features.Polls.Queries.GetPollById
 {

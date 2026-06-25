@@ -17,18 +17,12 @@
 
         private Vote() { }
 
-        public Vote(User voter, Poll poll, Option option)
+        internal Vote(Guid voterId, Guid pollId, Guid optionId)
         {
             Id = Guid.CreateVersion7();
-
-            VoterId = voter.Id;
-            Voter = voter;
-            
-            PollId = poll.Id;
-            Poll = poll;
-
-            Option = option;
-
+            VoterId = voterId;
+            PollId = pollId;
+            OptionId = optionId;
             VoteDate = DateTime.UtcNow;
         }
     }

@@ -6,17 +6,18 @@
         public string Name { get; private set; }
         
         public Guid PollId { get; private set; }
-        public Poll Poll { get; private set; }
+        public Poll Poll { get; private set; } = null!;
 
         private Option() { }
 
-        public Option(string name, Poll poll)
+        public Option(string name, Guid pollId)
         {
-            Id = Guid.CreateVersion7();
-            Name = name;
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-            PollId = poll.Id;
-            Poll = poll;
+            Id = Guid.CreateVersion7();
+
+            Name = name;
+            PollId = pollId;
         }
     }
 }

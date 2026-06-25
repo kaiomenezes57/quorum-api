@@ -6,6 +6,7 @@ namespace Quorum.Infrastructure.Persistence
     public sealed class AppDbContext(DbContextOptions options) : DbContext(options)
     {
         public DbSet<User> Users { get; private set; }
+        public DbSet<Vote> Votes { get; private set; }
 
         public DbSet<Poll> Polls { get; private set; }
         public DbSet<Option> Options { get; private set; }
