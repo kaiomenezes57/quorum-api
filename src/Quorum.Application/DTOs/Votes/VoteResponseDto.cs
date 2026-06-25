@@ -1,4 +1,4 @@
-﻿namespace Quorum.Application.DTOs.Vote
+﻿namespace Quorum.Application.DTOs.Votes
 {
     public record VoteResponseDto(
         Guid UserId,

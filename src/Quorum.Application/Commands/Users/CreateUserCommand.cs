@@ -1,6 +1,6 @@
 ﻿using MediatR;
 
-namespace Quorum.Application.Commands.User
+namespace Quorum.Application.Commands.Users
 {
     public record CreateUserCommand(
         string Username,

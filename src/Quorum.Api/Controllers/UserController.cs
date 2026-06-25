@@ -1,6 +1,6 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Quorum.Application.Commands.User;
+using Quorum.Application.Commands.Users;
 using Quorum.Application.Queries.Users;
 
 namespace Quorum.Api.Controllers

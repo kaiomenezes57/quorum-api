@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Quorum.Application.Commands.Poll;
-using Quorum.Application.Queries.Poll;
+using Quorum.Application.Commands.Polls;
+using Quorum.Application.Queries.Polls;
 
 namespace Quorum.Api.Controllers
 {

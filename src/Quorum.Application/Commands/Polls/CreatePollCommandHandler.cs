@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Quorum.Application.Interfaces;
 
-namespace Quorum.Application.Commands.Poll
+namespace Quorum.Application.Commands.Polls
 {
     public sealed class CreatePollCommandHandler : IRequestHandler<CreatePollCommand, Guid>
     {

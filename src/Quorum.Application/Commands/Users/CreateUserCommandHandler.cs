@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Quorum.Application.Interfaces;
 
-namespace Quorum.Application.Commands.User
+namespace Quorum.Application.Commands.Users
 {
     public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Guid>
     {

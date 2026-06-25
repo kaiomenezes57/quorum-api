@@ -1,6 +1,6 @@
 ﻿using MediatR;
 
-namespace Quorum.Application.Commands.Poll
+namespace Quorum.Application.Commands.Polls
 {
     public record CreatePollCommand(
         string Name,
