@@ -13,6 +13,10 @@ namespace Quorum.Infrastructure.Persistence.Configurations
             builder.Property(x => x.Name)
                 .HasMaxLength(100)
                 .IsRequired();
+
+            builder.HasOne(x => x.Poll)
+                .WithMany(x => x.Options)
+                .HasForeignKey(x => x.PollId);
         }
     }
 }

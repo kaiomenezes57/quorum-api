@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Quorum.Application\Quorum.Application.csproj" />
     <ProjectReference Include="..\Quorum.Domain\Quorum.Domain.csproj" />
   </ItemGroup>
 

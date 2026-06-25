@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Quorum.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Quorum.Infrastructure.Persistence;
 namespace Quorum.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260625030203_AddRelationUserPool")]
+    partial class AddRelationUserPool
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -33,7 +36,7 @@ namespace Quorum.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid>("PollId")
+                    b.Property<Guid?>("PollId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -135,13 +138,9 @@ namespace Quorum.Infrastructure.Migrations
 
             modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
                 {
-                    b.HasOne("Quorum.Domain.Entities.Poll", "Poll")
+                    b.HasOne("Quorum.Domain.Entities.Poll", null)
                         .WithMany("Options")
-                        .HasForeignKey("PollId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Poll");
+                        .HasForeignKey("PollId");
                 });
 
             modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>

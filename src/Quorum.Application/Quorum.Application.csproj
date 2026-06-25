@@ -7,10 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Interfaces\" />
-    <Folder Include="Commands\" />
-    <Folder Include="DTOs\" />
-    <Folder Include="Queries\" />
+    <PackageReference Include="MediatR" Version="14.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Quorum.Domain\Quorum.Domain.csproj" />
   </ItemGroup>
 
 </Project>

@@ -18,10 +18,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Quorum.Application\Quorum.Application.csproj" />
     <ProjectReference Include="..\Quorum.Infrastructure\Quorum.Infrastructure.csproj" />
   </ItemGroup>

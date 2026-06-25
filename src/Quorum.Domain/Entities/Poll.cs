@@ -20,14 +20,14 @@ namespace Quorum.Domain.Entities
         public DateTime EndDate { get; private set; }
 
         public IReadOnlyList<Option> Options => _options.AsReadOnly();
-        private readonly List<Option> _options;
+        private readonly List<Option> _options = [];
 
         public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
         private readonly List<Vote> _votes = [];
 
         private Poll() { }
 
-        public Poll(string name, string description, User owner, int votesTarget, List<Option> options)
+        public Poll(string name, string description, User owner, int votesTarget)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(name);
             ArgumentException.ThrowIfNullOrWhiteSpace(description);
@@ -35,10 +35,6 @@ namespace Quorum.Domain.Entities
             ArgumentNullException.ThrowIfNull(owner);
 
             ArgumentOutOfRangeException.ThrowIfLessThan(votesTarget, 3);
-
-            ArgumentNullException.ThrowIfNull(options);
-            ArgumentOutOfRangeException.ThrowIfLessThan(options.Count, 2);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(options.Count, 10);
 
             Id = Guid.CreateVersion7();
 
@@ -51,10 +47,13 @@ namespace Quorum.Domain.Entities
             Status = PollStatus.Open;
             VotesTarget = votesTarget;
 
-            _options = options;
-
             CreateDate = DateTime.UtcNow;
             LastModifierDate = DateTime.UtcNow;
+        }
+
+        public void AddOption(Option option)
+        {
+            _options.Add(option);
         }
 
         public void AddVote(Vote vote)

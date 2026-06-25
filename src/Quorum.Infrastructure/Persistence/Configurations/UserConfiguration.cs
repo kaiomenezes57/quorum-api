@@ -16,6 +16,10 @@ namespace Quorum.Infrastructure.Persistence.Configurations
 
             builder.Property(x => x.Email)
                 .IsRequired();
+
+            builder.HasMany(x => x.Polls)
+                .WithOne(x => x.Owner)
+                .HasForeignKey(x => x.OwnerId);
         }
     }
 }

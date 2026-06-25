@@ -1,3 +1,4 @@
+using Quorum.Application;
 using Quorum.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,9 +6,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-builder.Services.AddSwaggerGen();
-
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddMediatR(option => {
+    option.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly);
+});
+
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
