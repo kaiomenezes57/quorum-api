@@ -1,1 +1,9 @@
-<Solution />
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Quorum.API/Quorum.API.csproj" />
+    <Project Path="src/Quorum.Application/Quorum.Application.csproj" />
+    <Project Path="src/Quorum.Domain/Quorum.Domain.csproj" />
+    <Project Path="src/Quorum.Infrastructure/Quorum.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+</Solution>
