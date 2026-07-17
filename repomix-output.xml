@@ -1,0 +1,1166 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  Quorum.API/
+    Controllers/
+      PollController.cs
+    Properties/
+      launchSettings.json
+    appsettings.Development.json
+    appsettings.json
+    Program.cs
+    Quorum.API.csproj
+    Quorum.API.http
+  Quorum.Application/
+    Features/
+      Polls/
+        GetAllPolls/
+          GetAllPollsQuery.cs
+          GetAllPollsQueryHandler.cs
+          PollResponseDto.cs
+    Shared/
+      Options/
+        OptionResponseDto.cs
+      Polls/
+        PollExtensions.cs
+    DependencyInjection.cs
+    Quorum.Application.csproj
+  Quorum.Domain/
+    Entities/
+      BaseEntity.cs
+      Option.cs
+      Poll.cs
+      User.cs
+      Vote.cs
+    Repositories/
+      IPollRepository.cs
+    ValueObjects/
+      Password.cs
+    Quorum.Domain.csproj
+  Quorum.Infrastructure/
+    Persistence/
+      Repositories/
+        PollRepository.cs
+      AppDbContext.cs
+    DependencyInjection.cs
+    Quorum.Infrastructure.csproj
+.gitignore
+Quorum.slnx
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/Quorum.API/Controllers/PollController.cs">
+using MediatR;
+using Microsoft.AspNetCore.Mvc;
+using Quorum.Application.Features.Polls.GetAllPolls;
+
+namespace Quorum.API.Controllers;
+
+[ApiController]
+[Route("api/polls")]
+public class PollController(IMediator mediator) : ControllerBase
+{
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var result = await mediator.Send(new GetAllPollsQuery());
+
+        return result.Count == 0 ? 
+            NotFound() : 
+            Ok(result);
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/Features/Polls/GetAllPolls/GetAllPollsQuery.cs">
+using MediatR;
+
+namespace Quorum.Application.Features.Polls.GetAllPolls;
+
+public record GetAllPollsQuery : IRequest<IReadOnlyList<PollResponseDto>>;
+</file>
+
+<file path="src/Quorum.Application/Features/Polls/GetAllPolls/GetAllPollsQueryHandler.cs">
+using MediatR;
+using Quorum.Application.Shared.Polls;
+using Quorum.Domain.Repositories;
+
+namespace Quorum.Application.Features.Polls.GetAllPolls;
+
+public class GetAllPollsQueryHandler(IPollRepository repository) : 
+    IRequestHandler<GetAllPollsQuery,
+    IReadOnlyList<PollResponseDto>>
+{
+    public async Task<IReadOnlyList<PollResponseDto>> Handle(
+        GetAllPollsQuery request, 
+        CancellationToken cancellationToken)
+    {
+        var polls = await repository.GetAllAsync();
+        if (polls.Count == 0)
+            return [];
+        
+        var pollsResponse = polls.Select(p => p.ToDto()).ToList();
+
+        return pollsResponse.AsReadOnly();
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/Features/Polls/GetAllPolls/PollResponseDto.cs">
+using Quorum.Application.Shared.Options;
+
+namespace Quorum.Application.Features.Polls.GetAllPolls;
+
+public record PollResponseDto(
+    Guid Id,
+    Guid UserId,
+    string Name,
+    string Description,
+    DateTime CreatedAt,
+    DateTime LastUpdatedAt,
+    IReadOnlyList<OptionResponseDto> Options);
+</file>
+
+<file path="src/Quorum.Application/Shared/Options/OptionResponseDto.cs">
+namespace Quorum.Application.Shared.Options;
+
+public record OptionResponseDto(Guid Id, string Name);
+</file>
+
+<file path="src/Quorum.Application/Shared/Polls/PollExtensions.cs">
+using Quorum.Application.Features.Polls.GetAllPolls;
+using Quorum.Application.Shared.Options;
+using Quorum.Domain.Entities;
+
+namespace Quorum.Application.Shared.Polls;
+
+public static class PollExtensions
+{
+    public static PollResponseDto ToDto(this Poll source)
+    {
+        var pollResponse = new PollResponseDto(
+            source.Id,
+            source.UserId,
+            source.Name,
+            source.Description,
+            source.CreatedAt,
+            source.LastUpdatedAt,
+            source.Options 
+                .Select(o => new OptionResponseDto(o.Id, o.Name)) 
+                .ToList()
+                .AsReadOnly()
+        );
+
+        return pollResponse;
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/DependencyInjection.cs">
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Quorum.Application;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddApplication(this IServiceCollection services)
+    {
+        services.AddMediatR(cfg =>
+        {
+            cfg.RegisterServicesFromAssembly(
+                typeof(DependencyInjection).Assembly);
+        });
+
+        return services;
+    }
+}
+</file>
+
+<file path="src/Quorum.Domain/Entities/BaseEntity.cs">
+namespace Quorum.Domain.Entities;
+
+public abstract class BaseEntity
+{
+    public Guid Id { get; } = Guid.CreateVersion7();
+}
+</file>
+
+<file path="src/Quorum.Domain/Entities/Option.cs">
+namespace Quorum.Domain.Entities;
+
+public class Option : BaseEntity
+{
+    public string Name { get; }
+    
+    public Guid PollId { get; }
+    public Poll Poll { get; } = null!;
+    
+    public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
+    private readonly List<Vote> _votes = [];
+
+    private Option()
+    {
+    }
+
+    public Option(string name, Guid pollId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        
+        Name = name;
+        PollId = pollId;
+    }
+
+    public void AddVote(Guid userId)
+    {
+        if (_votes.Any(v => v.UserId == userId))
+            return;
+
+        var vote = new Vote(userId, Id);
+        _votes.Add(vote);
+    }
+}
+</file>
+
+<file path="src/Quorum.Domain/Entities/Poll.cs">
+namespace Quorum.Domain.Entities;
+
+public class Poll : BaseEntity
+{
+    public string Name { get; private set; }
+    public string Description { get; private set; }
+
+    public DateTime CreatedAt { get; }
+    public DateTime LastUpdatedAt { get; private set; }
+
+    public IReadOnlyList<Option> Options => _options.AsReadOnly();
+    private readonly List<Option> _options = [];
+    
+    public Guid UserId { get; }
+    public User User { get; } = null!;
+
+    private Poll()
+    {
+    }
+    
+    public Poll(string name, string description, Guid userId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrEmpty(description);
+        
+        Name = name;
+        Description = description;
+        UserId = userId;
+        
+        CreatedAt = DateTime.UtcNow;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
+    public void AddOption(string name)
+    {
+        var option = new Option(name, Id);
+        _options.Add(option);
+        
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+}
+</file>
+
+<file path="src/Quorum.Domain/Entities/User.cs">
+using Quorum.Domain.ValueObjects;
+
+namespace Quorum.Domain.Entities;
+
+public class User : BaseEntity 
+{
+    public string Name { get; private set; }
+    public string Email { get; private set; }
+    public Password Password { get; private set; }
+
+    public IReadOnlyList<Poll> Polls => _polls.AsReadOnly();
+    private readonly List<Poll> _polls = [];
+
+    private User()
+    {
+    }
+    
+    public User(string name, string email, string passwordHash)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrEmpty(email);
+        
+        Name = name;
+        Email = email;
+        Password = Password.Create(passwordHash);
+    }
+
+    public void AddPoll(string name, string description)
+    {
+        var poll = new Poll(name, description, Id);
+        _polls.Add(poll);
+    }
+
+    public bool VerifyPassword(string plainTextPassword)
+    {
+        return Password.Verify(plainTextPassword);
+    }
+}
+</file>
+
+<file path="src/Quorum.Domain/Entities/Vote.cs">
+namespace Quorum.Domain.Entities;
+
+public class Vote : BaseEntity
+{
+    public DateTime VotedAt { get; }
+    
+    public Guid UserId { get; }
+    public User User { get; } = null!;
+    
+    public Guid OptionId { get; }
+    public Option Option { get; } = null!;
+
+    private Vote()
+    {
+    }
+    
+    public Vote(Guid userId, Guid optionId)
+    {
+        VotedAt = DateTime.UtcNow;
+        
+        UserId = userId;
+        OptionId = optionId;
+    }
+}
+</file>
+
+<file path="src/Quorum.Domain/Repositories/IPollRepository.cs">
+using Quorum.Domain.Entities;
+
+namespace Quorum.Domain.Repositories;
+
+public interface IPollRepository
+{
+    Task<Guid> CreateAsync(Poll poll);
+    Task<IReadOnlyList<Poll>> GetAllAsync();
+}
+</file>
+
+<file path="src/Quorum.Domain/ValueObjects/Password.cs">
+namespace Quorum.Domain.ValueObjects;
+
+public class Password
+{
+    public string Hash { get; private set; }
+
+    private Password()
+    {
+    }
+
+    private Password(string hash)
+    {
+        Hash = hash;
+    }
+
+    public static Password Create(string plainTextPassword)
+    {
+        if (string.IsNullOrWhiteSpace(plainTextPassword))
+            throw new ArgumentException("Password cannot be null or whitespace.");
+
+        if (plainTextPassword.Length < 8)
+            throw new ArgumentException("Password must be  at least 8 characters long.");
+
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(plainTextPassword);
+
+        return new Password(passwordHash);
+    }
+
+    public bool Verify(string plainTextPassword) 
+        => BCrypt.Net.BCrypt.Verify(plainTextPassword, Hash);
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Persistence/Repositories/PollRepository.cs">
+using Quorum.Domain.Entities;
+using Quorum.Domain.Repositories;
+
+namespace Quorum.Infrastructure.Persistence.Repositories;
+
+public class PollRepository(AppDbContext context) : IPollRepository
+{
+    public async Task<Guid> CreateAsync(Poll poll)
+    {
+        await context.Polls.AddAsync(poll);
+        return poll.Id;
+    }
+
+    public async Task<IReadOnlyList<Poll>> GetAllAsync()
+    {
+        var polls = context.Polls.ToList();
+        return polls.AsReadOnly();
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Persistence/AppDbContext.cs">
+using Microsoft.EntityFrameworkCore;
+using Quorum.Domain.Entities;
+
+namespace Quorum.Infrastructure.Persistence;
+
+public class AppDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<Poll> Polls { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        base.OnModelCreating(modelBuilder);
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/DependencyInjection.cs">
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Quorum.Domain.Repositories;
+using Quorum.Infrastructure.Persistence;
+using Quorum.Infrastructure.Persistence.Repositories;
+
+namespace Quorum.Infrastructure;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddDbContext<AppDbContext>(options =>
+        {
+            var connectionString = configuration.GetConnectionString("Default");
+            options.UseMySQL(connectionString);
+        });
+        
+        services.AddScoped<IPollRepository, PollRepository>();
+
+        return services;
+    }
+}
+</file>
+
+<file path="src/Quorum.API/Properties/launchSettings.json">
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5112",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7260;http://localhost:5112",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
+</file>
+
+<file path="src/Quorum.API/appsettings.Development.json">
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+</file>
+
+<file path="src/Quorum.API/appsettings.json">
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+</file>
+
+<file path="src/Quorum.API/Program.cs">
+using Quorum.Application;
+using Quorum.Infrastructure;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
+
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+    app.MapOpenApi();
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+</file>
+
+<file path="src/Quorum.API/Quorum.API.csproj">
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UserSecretsId>0ee0a153-ca63-466e-869d-9cdc964a65c9</UserSecretsId>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MediatR" Version="14.2.0" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Quorum.Infrastructure\Quorum.Infrastructure.csproj" />
+    </ItemGroup>
+
+</Project>
+</file>
+
+<file path="src/Quorum.API/Quorum.API.http">
+@HostAddress = http://localhost:5112
+
+GET {{HostAddress}}/api/polls
+
+###
+</file>
+
+<file path="src/Quorum.Application/Quorum.Application.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Quorum.Domain\Quorum.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="MediatR" Version="14.2.0" />
+    </ItemGroup>
+
+</Project>
+</file>
+
+<file path="src/Quorum.Domain/Quorum.Domain.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
+    </ItemGroup>
+
+</Project>
+</file>
+
+<file path="src/Quorum.Infrastructure/Quorum.Infrastructure.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.10">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="MySql.EntityFrameworkCore" Version="10.0.7" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Quorum.Application\Quorum.Application.csproj" />
+      <ProjectReference Include="..\Quorum.Domain\Quorum.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="Microsoft.Extensions.Configuration.Abstractions">
+        <HintPath>C:\Program Files\dotnet\shared\Microsoft.AspNetCore.App\10.0.9\Microsoft.Extensions.Configuration.Abstractions.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+</Project>
+</file>
+
+<file path=".gitignore">
+## Ignore Visual Studio temporary files, build results, and
+## files generated by popular Visual Studio add-ons.
+##
+## Get latest from `dotnet new gitignore`
+
+# dotenv files
+.env
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# User-specific files (MonoDevelop/Xamarin Studio)
+*.userprefs
+
+# Mono auto generated files
+mono_crash.*
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio 2015/2017 cache/options directory
+.vs/
+# Uncomment if you have tasks that create the project's static files in wwwroot
+#wwwroot/
+
+# Visual Studio 2017 auto generated files
+Generated\ Files/
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# NUnit
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+# Build Results of an ATL Project
+[Dd]ebugPS/
+[Rr]eleasePS/
+dlldata.c
+
+# Benchmark Results
+BenchmarkDotNet.Artifacts/
+
+# .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Tye
+.tye/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# StyleCop
+StyleCopReport.xml
+
+# Files built by Visual Studio
+*_i.c
+*_p.c
+*_h.h
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+# but not Directory.Build.rsp, as it configures directory-level build defaults
+!Directory.Build.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.log
+*.tlog
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# Chutzpah Test files
+_Chutzpah*
+
+# Visual C++ cache files
+ipch/
+*.aps
+*.ncb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+
+# Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# Visual Studio Trace Files
+*.e2e
+
+# TFS 2012 Local Workspace
+$tf/
+
+# Guidance Automation Toolkit
+*.gpState
+
+# ReSharper is a .NET coding add-in
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# TeamCity is a build add-in
+_TeamCity*
+
+# DotCover is a Code Coverage Tool
+*.dotCover
+
+# AxoCover is a Code Coverage Tool
+.axoCover/*
+!.axoCover/settings.json
+
+# Coverlet is a free, cross platform Code Coverage Tool
+coverage*.json
+coverage*.xml
+coverage*.info
+
+# Visual Studio code coverage results
+*.coverage
+*.coveragexml
+
+# NCrunch
+_NCrunch_*
+.*crunch*.local.xml
+nCrunchTemp_*
+
+# MightyMoose
+*.mm.*
+AutoTest.Net/
+
+# Web workbench (sass)
+.sass-cache/
+
+# Installshield output folder
+[Ee]xpress/
+
+# DocProject is a documentation generator add-in
+DocProject/buildhelp/
+DocProject/Help/*.HxT
+DocProject/Help/*.HxC
+DocProject/Help/*.hhc
+DocProject/Help/*.hhk
+DocProject/Help/*.hhp
+DocProject/Help/Html2
+DocProject/Help/html
+
+# Click-Once directory
+publish/
+
+# Publish Web Output
+*.[Pp]ublish.xml
+*.azurePubxml
+# Note: Comment the next line if you want to checkin your web deploy settings,
+# but database connection strings (with potential passwords) will be unencrypted
+*.pubxml
+*.publishproj
+
+# Microsoft Azure Web App publish settings. Comment the next line if you want to
+# checkin your Azure Web App publish settings, but sensitive information contained
+# in these scripts will be unencrypted
+PublishScripts/
+
+# NuGet Packages
+*.nupkg
+# NuGet Symbol Packages
+*.snupkg
+# The packages folder can be ignored because of Package Restore
+**/[Pp]ackages/*
+# except build/, which is used as an MSBuild target.
+!**/[Pp]ackages/build/
+# Uncomment if necessary however generally it will be regenerated when needed
+#!**/[Pp]ackages/repositories.config
+# NuGet v3's project.json files produces more ignorable files
+*.nuget.props
+*.nuget.targets
+
+# Microsoft Azure Build Output
+csx/
+*.build.csdef
+
+# Microsoft Azure Emulator
+ecf/
+rcf/
+
+# Windows Store app package directories and files
+AppPackages/
+BundleArtifacts/
+Package.StoreAssociation.xml
+_pkginfo.txt
+*.appx
+*.appxbundle
+*.appxupload
+
+# Visual Studio cache files
+# files ending in .cache can be ignored
+*.[Cc]ache
+# but keep track of directories ending in .cache
+!?*.[Cc]ache/
+
+# Others
+ClientBin/
+~$*
+*~
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+*.pfx
+*.publishsettings
+orleans.codegen.cs
+
+# Including strong name files can present a security risk
+# (https://github.com/github/gitignore/pull/2483#issue-259490424)
+#*.snk
+
+# Since there are multiple workflows, uncomment next line to ignore bower_components
+# (https://github.com/github/gitignore/pull/1529#issuecomment-104372622)
+#bower_components/
+
+# RIA/Silverlight projects
+Generated_Code/
+
+# Backup & report files from converting an old project file
+# to a newer Visual Studio version. Backup files are not needed,
+# because we have git ;-)
+_UpgradeReport_Files/
+Backup*/
+UpgradeLog*.XML
+UpgradeLog*.htm
+ServiceFabricBackup/
+*.rptproj.bak
+
+# SQL Server files
+*.mdf
+*.ldf
+*.ndf
+
+# Business Intelligence projects
+*.rdl.data
+*.bim.layout
+*.bim_*.settings
+*.rptproj.rsuser
+*- [Bb]ackup.rdl
+*- [Bb]ackup ([0-9]).rdl
+*- [Bb]ackup ([0-9][0-9]).rdl
+
+# Microsoft Fakes
+FakesAssemblies/
+
+# GhostDoc plugin setting file
+*.GhostDoc.xml
+
+# Node.js Tools for Visual Studio
+.ntvs_analysis.dat
+node_modules/
+
+# Visual Studio 6 build log
+*.plg
+
+# Visual Studio 6 workspace options file
+*.opt
+
+# Visual Studio 6 auto-generated workspace file (contains which files were open etc.)
+*.vbw
+
+# Visual Studio 6 auto-generated project file (contains which files were open etc.)
+*.vbp
+
+# Visual Studio 6 workspace and project file (working project files containing files to include in project)
+*.dsw
+*.dsp
+
+# Visual Studio 6 technical files
+*.ncb
+*.aps
+
+# Visual Studio LightSwitch build output
+**/*.HTMLClient/GeneratedArtifacts
+**/*.DesktopClient/GeneratedArtifacts
+**/*.DesktopClient/ModelManifest.xml
+**/*.Server/GeneratedArtifacts
+**/*.Server/ModelManifest.xml
+_Pvt_Extensions
+
+# Paket dependency manager
+.paket/paket.exe
+paket-files/
+
+# FAKE - F# Make
+.fake/
+
+# CodeRush personal settings
+.cr/personal
+
+# Python Tools for Visual Studio (PTVS)
+__pycache__/
+*.pyc
+
+# Cake - Uncomment if you are using it
+# tools/**
+# !tools/packages.config
+
+# Tabs Studio
+*.tss
+
+# Telerik's JustMock configuration file
+*.jmconfig
+
+# BizTalk build output
+*.btp.cs
+*.btm.cs
+*.odx.cs
+*.xsd.cs
+
+# OpenCover UI analysis results
+OpenCover/
+
+# Azure Stream Analytics local run output
+ASALocalRun/
+
+# MSBuild Binary and Structured Log
+*.binlog
+
+# NVidia Nsight GPU debugger configuration file
+*.nvuser
+
+# MFractors (Xamarin productivity tool) working folder
+.mfractor/
+
+# Local History for Visual Studio
+.localhistory/
+
+# Visual Studio History (VSHistory) files
+.vshistory/
+
+# BeatPulse healthcheck temp database
+healthchecksdb
+
+# Backup folder for Package Reference Convert tool in Visual Studio 2017
+MigrationBackup/
+
+# Ionide (cross platform F# VS Code tools) working folder
+.ionide/
+
+# Fody - auto-generated XML schema
+FodyWeavers.xsd
+
+# VS Code files for those working on multiple tools
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/
+
+# Windows Installer files from build outputs
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# JetBrains Rider
+*.sln.iml
+.idea/
+
+##
+## Visual studio for Mac
+##
+
+
+# globs
+Makefile.in
+*.userprefs
+*.usertasks
+config.make
+config.status
+aclocal.m4
+install-sh
+autom4te.cache/
+*.tar.gz
+tarballs/
+test-results/
+
+# content below from: https://github.com/github/gitignore/blob/main/Global/macOS.gitignore
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# content below from: https://github.com/github/gitignore/blob/main/Global/Windows.gitignore
+# Windows thumbnail cache files
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+
+# Dump file
+*.stackdump
+
+# Folder config file
+[Dd]esktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows Installer files
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+# Vim temporary swap files
+*.swp
+</file>
+
+<file path="Quorum.slnx">
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Quorum.API/Quorum.API.csproj" />
+    <Project Path="src/Quorum.Application/Quorum.Application.csproj" />
+    <Project Path="src/Quorum.Domain/Quorum.Domain.csproj" />
+    <Project Path="src/Quorum.Infrastructure/Quorum.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+</Solution>
+</file>
+
+</files>

@@ -1,6 +1,5 @@
-@Quorum.API_HostAddress = http://localhost:5112
+@HostAddress = http://localhost:5112
 
-GET {{Quorum.API_HostAddress}}/weatherforecast/
-Accept: application/json
+GET {{HostAddress}}/api/polls
 
 ###
