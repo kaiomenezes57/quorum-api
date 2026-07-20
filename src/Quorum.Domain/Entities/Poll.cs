@@ -14,9 +14,7 @@ public class Poll : BaseEntity
     public Guid UserId { get; }
     public User User { get; } = null!;
 
-    private Poll()
-    {
-    }
+    private Poll() { }
     
     public Poll(string name, string description, Guid userId)
     {
@@ -31,11 +29,77 @@ public class Poll : BaseEntity
         LastUpdatedAt = DateTime.UtcNow;
     }
 
+    public bool UpdateName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return false;
+        
+        Name = name;
+        UpdateLastUpdatedAt();
+        
+        return true;
+    }
+
+    public bool UpdateDescription(string description)
+    {
+        if (string.IsNullOrEmpty(description))
+            return false;
+        
+        Description = description;
+        UpdateLastUpdatedAt();
+        
+        return true;
+    }
+
     public void AddOption(string name)
     {
         var option = new Option(name, Id);
         _options.Add(option);
         
+        UpdateLastUpdatedAt();
+    }
+
+    public bool RemoveOption(Guid optionId)
+    {
+        var option = _options.Find(o => o.Id == optionId);
+        if (option is null) 
+            return false;
+
+        if (!_options.Remove(option)) 
+            return false;
+        
+        UpdateLastUpdatedAt();
+        return true;
+    }
+
+    public bool AddVote(Guid optionId, Guid userId)
+    {
+        var option = _options.Find(o => o.Id == optionId);
+        if (option is null) 
+            return false;
+
+        if (!option.AddVote(userId))
+            return false; 
+        
+        UpdateLastUpdatedAt();
+        return true;
+    }
+
+    public bool RemoveVote(Guid optionId, Guid userId)
+    {
+        var option = _options.Find(o => o.Id == optionId);
+        if (option is null) 
+            return false;
+
+        if (!option.RemoveVote(userId))
+            return false;
+
+        UpdateLastUpdatedAt();
+        return true;
+    }
+    
+    private void UpdateLastUpdatedAt()
+    {
         LastUpdatedAt = DateTime.UtcNow;
     }
 }

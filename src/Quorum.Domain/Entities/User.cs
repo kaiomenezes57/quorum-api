@@ -6,14 +6,15 @@ public class User : BaseEntity
 {
     public string Name { get; private set; }
     public string Email { get; private set; }
-    public Password Password { get; private set; }
+    public Password Password { get; }
 
     public IReadOnlyList<Poll> Polls => _polls.AsReadOnly();
     private readonly List<Poll> _polls = [];
+    
+    public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
+    private readonly List<Vote> _votes = [];
 
-    private User()
-    {
-    }
+    private User() { }
     
     public User(string name, string email, string passwordHash)
     {
@@ -25,14 +26,6 @@ public class User : BaseEntity
         Password = Password.Create(passwordHash);
     }
 
-    public void AddPoll(string name, string description)
-    {
-        var poll = new Poll(name, description, Id);
-        _polls.Add(poll);
-    }
-
-    public bool VerifyPassword(string plainTextPassword)
-    {
-        return Password.Verify(plainTextPassword);
-    }
+    public bool VerifyPassword(string plainTextPassword) 
+        => Password.Verify(plainTextPassword);
 }

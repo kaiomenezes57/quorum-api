@@ -4,6 +4,8 @@ namespace Quorum.Domain.Repositories;
 
 public interface IPollRepository
 {
-    Task<Guid> CreateAsync(Poll poll);
+    Task CreateAsync(Poll poll);
+    
     Task<IReadOnlyList<Poll>> GetAllAsync();
+    Task<Poll?> GetByIdAsync(Guid id);
 }

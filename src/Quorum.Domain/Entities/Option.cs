@@ -10,9 +10,7 @@ public class Option : BaseEntity
     public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
     private readonly List<Vote> _votes = [];
 
-    private Option()
-    {
-    }
+    private Option() { }
 
     public Option(string name, Guid pollId)
     {
@@ -22,12 +20,23 @@ public class Option : BaseEntity
         PollId = pollId;
     }
 
-    public void AddVote(Guid userId)
+    public bool AddVote(Guid userId)
     {
         if (_votes.Any(v => v.UserId == userId))
-            return;
+            return false;
 
         var vote = new Vote(userId, Id);
         _votes.Add(vote);
+
+        return true;
+    }
+
+    public bool RemoveVote(Guid userId)
+    {
+        if (_votes.All(v => v.UserId != userId))
+            return false;
+        
+        _votes.RemoveAll(v => v.UserId == userId);
+        return true;
     }
 }

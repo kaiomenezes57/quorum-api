@@ -10,9 +10,7 @@ public class Vote : BaseEntity
     public Guid OptionId { get; }
     public Option Option { get; } = null!;
 
-    private Vote()
-    {
-    }
+    private Vote() { }
     
     public Vote(Guid userId, Guid optionId)
     {

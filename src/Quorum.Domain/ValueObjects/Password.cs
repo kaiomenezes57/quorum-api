@@ -2,11 +2,9 @@
 
 public class Password
 {
-    public string Hash { get; private set; }
+    public string Hash { get; }
 
-    private Password()
-    {
-    }
+    private Password() { }
 
     private Password(string hash)
     {

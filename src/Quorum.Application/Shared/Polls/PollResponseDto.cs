@@ -1,6 +1,6 @@
 ﻿using Quorum.Application.Shared.Options;
 
-namespace Quorum.Application.Features.Polls.GetAllPolls;
+namespace Quorum.Application.Shared.Polls;
 
 public record PollResponseDto(
     Guid Id,
