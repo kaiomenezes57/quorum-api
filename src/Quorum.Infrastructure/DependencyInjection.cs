@@ -22,6 +22,7 @@ public static class DependencyInjection
 
             services.AddJwtAuthentication(configuration);
 
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<ITokenService, TokenService>();
             services.AddScoped<IPollRepository, PollRepository>();
             services.AddScoped<IUserRepository, UserRepository>();

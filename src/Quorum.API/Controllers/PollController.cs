@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Quorum.Application.Features.Options;
 using Quorum.Application.Features.Polls.CreatePoll;
 using Quorum.Application.Features.Polls.GetAllPolls;
 using Quorum.Application.Features.Polls.GetPollById;
@@ -33,7 +34,7 @@ public class PollController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize]
+    //[Authorize]
     public async Task<IActionResult> Create([FromBody] CreatePollCommand command)
     {
         var result = await mediator.Send(command);
@@ -41,5 +42,19 @@ public class PollController(IMediator mediator) : ControllerBase
         return !result.IsSuccess ?
             BadRequest(result.ErrorMessage) :
             Ok(result.Data);
+    }
+
+    [HttpPost("{pollId:guid}/options")]
+    //[Authorize]
+    public async Task<IActionResult> Vote(
+        Guid pollId, 
+        [FromBody] string name)
+    {
+        var result = 
+            await mediator.Send(new CreateOptionCommand(name, pollId));
+
+        return !result.IsSuccess ? 
+            BadRequest(result.ErrorMessage) : 
+            Created();
     }
 }

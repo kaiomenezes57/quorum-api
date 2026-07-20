@@ -51,12 +51,17 @@ public class Poll : BaseEntity
         return true;
     }
 
-    public void AddOption(string name)
+    public bool AddOption(string name)
     {
+        if (_options.Any(o => o.Name == name))
+            return false;
+        
         var option = new Option(name, Id);
         _options.Add(option);
         
         UpdateLastUpdatedAt();
+
+        return true;
     }
 
     public bool RemoveOption(Guid optionId)

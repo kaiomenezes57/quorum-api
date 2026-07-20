@@ -27,7 +27,7 @@ public class PollRepository(AppDbContext context) : IPollRepository
     {
         var poll = context.Polls
             .Include(p => p.Options)
-            .FirstAsync(p => p.Id == id);
+            .FirstOrDefaultAsync(p => p.Id == id);
 
         return poll!;
     }

@@ -9,5 +9,8 @@ public class VoteConfiguration : IEntityTypeConfiguration<Vote>
     public void Configure(EntityTypeBuilder<Vote> builder)
     {
         builder.HasKey(v => v.Id);
+        
+        builder.Property(v => v.Id)
+            .ValueGeneratedNever();
     }
 }

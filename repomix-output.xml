@@ -43,26 +43,49 @@ The content is organized as follows:
 src/
   Quorum.API/
     Controllers/
+      AuthController.cs
       PollController.cs
     Properties/
       launchSettings.json
     appsettings.Development.json
     appsettings.json
+    Dockerfile
     Program.cs
     Quorum.API.csproj
-    Quorum.API.http
   Quorum.Application/
     Features/
+      Auth/
+        Login/
+          LoginCommand.cs
+          LoginCommandHandler.cs
+          LoginResponseDto.cs
+        Register/
+          RegisterCommand.cs
+          RegisterCommandHandler.cs
+      Options/
+        CreateOptionCommand.cs
+        CreateOptionCommandHandler.cs
       Polls/
+        CreatePoll/
+          CreatePollCommand.cs
+          CreatePollCommandHandler.cs
         GetAllPolls/
           GetAllPollsQuery.cs
           GetAllPollsQueryHandler.cs
-          PollResponseDto.cs
+        GetPollById/
+          GetPollByIdQuery.cs
+          GetPollByIdQueryHandler.cs
+    Interfaces/
+      ITokenService.cs
+      UnitOfWork.cs
     Shared/
       Options/
         OptionResponseDto.cs
       Polls/
         PollExtensions.cs
+        PollResponseDto.cs
+      Responses/
+        DefaultResponse.cs
     DependencyInjection.cs
     Quorum.Application.csproj
   Quorum.Domain/
@@ -74,417 +97,132 @@ src/
       Vote.cs
     Repositories/
       IPollRepository.cs
+      IUserRepository.cs
     ValueObjects/
       Password.cs
     Quorum.Domain.csproj
   Quorum.Infrastructure/
+    Auth/
+      TokenService.cs
+    Migrations/
+      20260717214201_Initial.cs
+      20260717214201_Initial.Designer.cs
+      20260720194124_SecondMigrationTest.cs
+      20260720194124_SecondMigrationTest.Designer.cs
+      AppDbContextModelSnapshot.cs
     Persistence/
+      Configurations/
+        OptionCinfiguration.cs
+        PollConfiguration.cs
+        UserConfiguration.cs
+        VoteConfiguration.cs
       Repositories/
         PollRepository.cs
+        UserRepository.cs
       AppDbContext.cs
+      UnitOfWork.cs
     DependencyInjection.cs
     Quorum.Infrastructure.csproj
+.dockerignore
 .gitignore
+docker-compose.yml
 Quorum.slnx
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
 
-<file path="src/Quorum.API/Controllers/PollController.cs">
+<file path="src/Quorum.Application/Features/Options/CreateOptionCommand.cs">
+using MediatR;
+using Quorum.Application.Shared.Responses;
+
+namespace Quorum.Application.Features.Options;
+
+public record CreateOptionCommand(string Name, Guid PollId) : 
+    IRequest<DefaultResponse<string>>;
+</file>
+
+<file path="src/Quorum.Application/Features/Options/CreateOptionCommandHandler.cs">
+using MediatR;
+using Quorum.Application.Interfaces;
+using Quorum.Application.Shared.Responses;
+using Quorum.Domain.Repositories;
+
+namespace Quorum.Application.Features.Options;
+
+public class CreateOptionCommandHandler(IPollRepository repository, IUnitOfWork unitOfWork) :
+    IRequestHandler<CreateOptionCommand, DefaultResponse<string>>
+{
+    public async Task<DefaultResponse<string>> Handle(
+        CreateOptionCommand request,
+        CancellationToken cancellationToken)
+    {
+        var poll = await repository.GetByIdAsync(request.PollId);
+        if (poll is null)
+            return DefaultResponse<string>
+                .Failure("Poll does not exist.")!;
+        
+        poll.AddOption(request.Name);
+        
+        await unitOfWork.CommitAsync();
+
+        return DefaultResponse<string>
+            .Success(string.Empty)!;
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/Interfaces/UnitOfWork.cs">
+namespace Quorum.Application.Interfaces;
+
+public interface IUnitOfWork
+{
+    Task CommitAsync();
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Persistence/UnitOfWork.cs">
+using Quorum.Application.Interfaces;
+
+namespace Quorum.Infrastructure.Persistence;
+
+public class UnitOfWork(AppDbContext context) : IUnitOfWork
+{
+    public async Task CommitAsync() 
+        => await context.SaveChangesAsync();
+}
+</file>
+
+<file path="src/Quorum.API/Controllers/AuthController.cs">
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Quorum.Application.Features.Polls.GetAllPolls;
+using Quorum.Application.Features.Auth.Login;
+using Quorum.Application.Features.Auth.Register;
 
 namespace Quorum.API.Controllers;
 
 [ApiController]
-[Route("api/polls")]
-public class PollController(IMediator mediator) : ControllerBase
+[Route("api/auth")]
+public class AuthController(IMediator mediator) : ControllerBase
 {
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginCommand command)
     {
-        var result = await mediator.Send(new GetAllPollsQuery());
-
-        return result.Count == 0 ? 
-            NotFound() : 
-            Ok(result);
-    }
-}
-</file>
-
-<file path="src/Quorum.Application/Features/Polls/GetAllPolls/GetAllPollsQuery.cs">
-using MediatR;
-
-namespace Quorum.Application.Features.Polls.GetAllPolls;
-
-public record GetAllPollsQuery : IRequest<IReadOnlyList<PollResponseDto>>;
-</file>
-
-<file path="src/Quorum.Application/Features/Polls/GetAllPolls/GetAllPollsQueryHandler.cs">
-using MediatR;
-using Quorum.Application.Shared.Polls;
-using Quorum.Domain.Repositories;
-
-namespace Quorum.Application.Features.Polls.GetAllPolls;
-
-public class GetAllPollsQueryHandler(IPollRepository repository) : 
-    IRequestHandler<GetAllPollsQuery,
-    IReadOnlyList<PollResponseDto>>
-{
-    public async Task<IReadOnlyList<PollResponseDto>> Handle(
-        GetAllPollsQuery request, 
-        CancellationToken cancellationToken)
-    {
-        var polls = await repository.GetAllAsync();
-        if (polls.Count == 0)
-            return [];
+        var result = await mediator.Send(command);
         
-        var pollsResponse = polls.Select(p => p.ToDto()).ToList();
-
-        return pollsResponse.AsReadOnly();
-    }
-}
-</file>
-
-<file path="src/Quorum.Application/Features/Polls/GetAllPolls/PollResponseDto.cs">
-using Quorum.Application.Shared.Options;
-
-namespace Quorum.Application.Features.Polls.GetAllPolls;
-
-public record PollResponseDto(
-    Guid Id,
-    Guid UserId,
-    string Name,
-    string Description,
-    DateTime CreatedAt,
-    DateTime LastUpdatedAt,
-    IReadOnlyList<OptionResponseDto> Options);
-</file>
-
-<file path="src/Quorum.Application/Shared/Options/OptionResponseDto.cs">
-namespace Quorum.Application.Shared.Options;
-
-public record OptionResponseDto(Guid Id, string Name);
-</file>
-
-<file path="src/Quorum.Application/Shared/Polls/PollExtensions.cs">
-using Quorum.Application.Features.Polls.GetAllPolls;
-using Quorum.Application.Shared.Options;
-using Quorum.Domain.Entities;
-
-namespace Quorum.Application.Shared.Polls;
-
-public static class PollExtensions
-{
-    public static PollResponseDto ToDto(this Poll source)
-    {
-        var pollResponse = new PollResponseDto(
-            source.Id,
-            source.UserId,
-            source.Name,
-            source.Description,
-            source.CreatedAt,
-            source.LastUpdatedAt,
-            source.Options 
-                .Select(o => new OptionResponseDto(o.Id, o.Name)) 
-                .ToList()
-                .AsReadOnly()
-        );
-
-        return pollResponse;
-    }
-}
-</file>
-
-<file path="src/Quorum.Application/DependencyInjection.cs">
-using Microsoft.Extensions.DependencyInjection;
-
-namespace Quorum.Application;
-
-public static class DependencyInjection
-{
-    public static IServiceCollection AddApplication(this IServiceCollection services)
-    {
-        services.AddMediatR(cfg =>
-        {
-            cfg.RegisterServicesFromAssembly(
-                typeof(DependencyInjection).Assembly);
-        });
-
-        return services;
-    }
-}
-</file>
-
-<file path="src/Quorum.Domain/Entities/BaseEntity.cs">
-namespace Quorum.Domain.Entities;
-
-public abstract class BaseEntity
-{
-    public Guid Id { get; } = Guid.CreateVersion7();
-}
-</file>
-
-<file path="src/Quorum.Domain/Entities/Option.cs">
-namespace Quorum.Domain.Entities;
-
-public class Option : BaseEntity
-{
-    public string Name { get; }
-    
-    public Guid PollId { get; }
-    public Poll Poll { get; } = null!;
-    
-    public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
-    private readonly List<Vote> _votes = [];
-
-    private Option()
-    {
+        return !result.IsSuccess ?
+            BadRequest(result.ErrorMessage) :
+            Ok(result.Data);
     }
 
-    public Option(string name, Guid pollId)
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterCommand command)
     {
-        ArgumentException.ThrowIfNullOrEmpty(name);
+        var result = await mediator.Send(command);
         
-        Name = name;
-        PollId = pollId;
-    }
-
-    public void AddVote(Guid userId)
-    {
-        if (_votes.Any(v => v.UserId == userId))
-            return;
-
-        var vote = new Vote(userId, Id);
-        _votes.Add(vote);
-    }
-}
-</file>
-
-<file path="src/Quorum.Domain/Entities/Poll.cs">
-namespace Quorum.Domain.Entities;
-
-public class Poll : BaseEntity
-{
-    public string Name { get; private set; }
-    public string Description { get; private set; }
-
-    public DateTime CreatedAt { get; }
-    public DateTime LastUpdatedAt { get; private set; }
-
-    public IReadOnlyList<Option> Options => _options.AsReadOnly();
-    private readonly List<Option> _options = [];
-    
-    public Guid UserId { get; }
-    public User User { get; } = null!;
-
-    private Poll()
-    {
-    }
-    
-    public Poll(string name, string description, Guid userId)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(name);
-        ArgumentException.ThrowIfNullOrEmpty(description);
-        
-        Name = name;
-        Description = description;
-        UserId = userId;
-        
-        CreatedAt = DateTime.UtcNow;
-        LastUpdatedAt = DateTime.UtcNow;
-    }
-
-    public void AddOption(string name)
-    {
-        var option = new Option(name, Id);
-        _options.Add(option);
-        
-        LastUpdatedAt = DateTime.UtcNow;
-    }
-}
-</file>
-
-<file path="src/Quorum.Domain/Entities/User.cs">
-using Quorum.Domain.ValueObjects;
-
-namespace Quorum.Domain.Entities;
-
-public class User : BaseEntity 
-{
-    public string Name { get; private set; }
-    public string Email { get; private set; }
-    public Password Password { get; private set; }
-
-    public IReadOnlyList<Poll> Polls => _polls.AsReadOnly();
-    private readonly List<Poll> _polls = [];
-
-    private User()
-    {
-    }
-    
-    public User(string name, string email, string passwordHash)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(name);
-        ArgumentException.ThrowIfNullOrEmpty(email);
-        
-        Name = name;
-        Email = email;
-        Password = Password.Create(passwordHash);
-    }
-
-    public void AddPoll(string name, string description)
-    {
-        var poll = new Poll(name, description, Id);
-        _polls.Add(poll);
-    }
-
-    public bool VerifyPassword(string plainTextPassword)
-    {
-        return Password.Verify(plainTextPassword);
-    }
-}
-</file>
-
-<file path="src/Quorum.Domain/Entities/Vote.cs">
-namespace Quorum.Domain.Entities;
-
-public class Vote : BaseEntity
-{
-    public DateTime VotedAt { get; }
-    
-    public Guid UserId { get; }
-    public User User { get; } = null!;
-    
-    public Guid OptionId { get; }
-    public Option Option { get; } = null!;
-
-    private Vote()
-    {
-    }
-    
-    public Vote(Guid userId, Guid optionId)
-    {
-        VotedAt = DateTime.UtcNow;
-        
-        UserId = userId;
-        OptionId = optionId;
-    }
-}
-</file>
-
-<file path="src/Quorum.Domain/Repositories/IPollRepository.cs">
-using Quorum.Domain.Entities;
-
-namespace Quorum.Domain.Repositories;
-
-public interface IPollRepository
-{
-    Task<Guid> CreateAsync(Poll poll);
-    Task<IReadOnlyList<Poll>> GetAllAsync();
-}
-</file>
-
-<file path="src/Quorum.Domain/ValueObjects/Password.cs">
-namespace Quorum.Domain.ValueObjects;
-
-public class Password
-{
-    public string Hash { get; private set; }
-
-    private Password()
-    {
-    }
-
-    private Password(string hash)
-    {
-        Hash = hash;
-    }
-
-    public static Password Create(string plainTextPassword)
-    {
-        if (string.IsNullOrWhiteSpace(plainTextPassword))
-            throw new ArgumentException("Password cannot be null or whitespace.");
-
-        if (plainTextPassword.Length < 8)
-            throw new ArgumentException("Password must be  at least 8 characters long.");
-
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(plainTextPassword);
-
-        return new Password(passwordHash);
-    }
-
-    public bool Verify(string plainTextPassword) 
-        => BCrypt.Net.BCrypt.Verify(plainTextPassword, Hash);
-}
-</file>
-
-<file path="src/Quorum.Infrastructure/Persistence/Repositories/PollRepository.cs">
-using Quorum.Domain.Entities;
-using Quorum.Domain.Repositories;
-
-namespace Quorum.Infrastructure.Persistence.Repositories;
-
-public class PollRepository(AppDbContext context) : IPollRepository
-{
-    public async Task<Guid> CreateAsync(Poll poll)
-    {
-        await context.Polls.AddAsync(poll);
-        return poll.Id;
-    }
-
-    public async Task<IReadOnlyList<Poll>> GetAllAsync()
-    {
-        var polls = context.Polls.ToList();
-        return polls.AsReadOnly();
-    }
-}
-</file>
-
-<file path="src/Quorum.Infrastructure/Persistence/AppDbContext.cs">
-using Microsoft.EntityFrameworkCore;
-using Quorum.Domain.Entities;
-
-namespace Quorum.Infrastructure.Persistence;
-
-public class AppDbContext(DbContextOptions options) : DbContext(options)
-{
-    public DbSet<Poll> Polls { get; set; }
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
-        base.OnModelCreating(modelBuilder);
-    }
-}
-</file>
-
-<file path="src/Quorum.Infrastructure/DependencyInjection.cs">
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Quorum.Domain.Repositories;
-using Quorum.Infrastructure.Persistence;
-using Quorum.Infrastructure.Persistence.Repositories;
-
-namespace Quorum.Infrastructure;
-
-public static class DependencyInjection
-{
-    public static IServiceCollection AddInfrastructure(
-        this IServiceCollection services, IConfiguration configuration)
-    {
-        services.AddDbContext<AppDbContext>(options =>
-        {
-            var connectionString = configuration.GetConnectionString("Default");
-            options.UseMySQL(connectionString);
-        });
-        
-        services.AddScoped<IPollRepository, PollRepository>();
-
-        return services;
+        return !result.IsSuccess ?
+            BadRequest(result.ErrorMessage) :
+            Created();
     }
 }
 </file>
@@ -538,60 +276,1550 @@ public static class DependencyInjection
 }
 </file>
 
-<file path="src/Quorum.API/Program.cs">
-using Quorum.Application;
-using Quorum.Infrastructure;
+<file path="src/Quorum.API/Dockerfile">
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
 
-var builder = WebApplication.CreateBuilder(args);
+COPY src/Quorum.Domain/Quorum.Domain.csproj src/Quorum.Domain/
+COPY src/Quorum.Application/Quorum.Application.csproj src/Quorum.Application/
+COPY src/Quorum.Infrastructure/Quorum.Infrastructure.csproj src/Quorum.Infrastructure/
+COPY src/Quorum.API/Quorum.API.csproj src/Quorum.API/
+RUN dotnet restore src/Quorum.API/Quorum.API.csproj
 
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+COPY src/ src/
+RUN dotnet publish src/Quorum.API/Quorum.API.csproj -c Development -o /app
 
-builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
-
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-    app.MapOpenApi();
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Quorum.API.dll"]
 </file>
 
-<file path="src/Quorum.API/Quorum.API.csproj">
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<file path="src/Quorum.Application/Features/Auth/Login/LoginCommand.cs">
+using MediatR;
+using Quorum.Application.Shared.Responses;
 
-    <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <UserSecretsId>0ee0a153-ca63-466e-869d-9cdc964a65c9</UserSecretsId>
-    </PropertyGroup>
+namespace Quorum.Application.Features.Auth.Login;
 
-    <ItemGroup>
-        <PackageReference Include="MediatR" Version="14.2.0" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9"/>
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\Quorum.Infrastructure\Quorum.Infrastructure.csproj" />
-    </ItemGroup>
-
-</Project>
+public record LoginCommand(string Email, string Password)
+    : IRequest<DefaultResponse<LoginResponseDto>>;
 </file>
 
-<file path="src/Quorum.API/Quorum.API.http">
-@HostAddress = http://localhost:5112
+<file path="src/Quorum.Application/Features/Auth/Login/LoginCommandHandler.cs">
+using MediatR;
+using Quorum.Application.Interfaces;
+using Quorum.Application.Shared.Responses;
+using Quorum.Domain.Repositories;
 
-GET {{HostAddress}}/api/polls
+namespace Quorum.Application.Features.Auth.Login;
 
-###
+public class LoginCommandHandler(IUserRepository repository, ITokenService tokenService) : 
+    IRequestHandler<LoginCommand, DefaultResponse<LoginResponseDto>>
+{
+    public async Task<DefaultResponse<LoginResponseDto>> Handle(
+        LoginCommand request, 
+        CancellationToken cancellationToken)
+    {
+        var user = await repository.GetByEmailAsync(request.Email);
+        if (user is null)
+            return DefaultResponse<LoginResponseDto>
+                .Failure("Given email is not registered.")!;
+
+        if (!user.VerifyPassword(request.Password))
+            return DefaultResponse<LoginResponseDto>
+                .Failure("Given password is not correct.")!;
+        
+        var token = tokenService.Generate(user.Id);
+        
+        return DefaultResponse<LoginResponseDto>
+            .Success(new LoginResponseDto(user.Id, token))!;
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/Features/Auth/Login/LoginResponseDto.cs">
+namespace Quorum.Application.Features.Auth.Login;
+
+public record LoginResponseDto(Guid UserId, string Token);
+</file>
+
+<file path="src/Quorum.Application/Features/Auth/Register/RegisterCommand.cs">
+using MediatR;
+using Quorum.Application.Shared.Responses;
+
+namespace Quorum.Application.Features.Auth.Register;
+
+public record RegisterCommand(string Name, string Email, string Password)
+    : IRequest<DefaultResponse<Guid>>;
+</file>
+
+<file path="src/Quorum.Application/Features/Auth/Register/RegisterCommandHandler.cs">
+using MediatR;
+using Quorum.Application.Shared.Responses;
+using Quorum.Domain.Entities;
+using Quorum.Domain.Repositories;
+
+namespace Quorum.Application.Features.Auth.Register;
+
+public class RegisterCommandHandler(IUserRepository repository) : 
+    IRequestHandler<RegisterCommand, DefaultResponse<Guid>>
+{
+    public async Task<DefaultResponse<Guid>> Handle(
+        RegisterCommand request, CancellationToken cancellationToken)
+    {
+        var existingUser = await repository.GetByEmailAsync(request.Email);
+        if (existingUser is not null)
+            return DefaultResponse<Guid>
+                .Failure("Given email has already been registered.");
+        
+        existingUser = await repository.GetByUsernameAsync(request.Name);
+        if (existingUser is not null)
+            return DefaultResponse<Guid>
+                .Failure("Given username has already been registered.");
+
+        var createdUser = new User(
+            request.Name,
+            request.Email,
+            request.Password);
+        
+        await repository.CreateAsync(createdUser);
+
+        return DefaultResponse<Guid>
+            .Success(createdUser.Id);
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/Features/Polls/CreatePoll/CreatePollCommand.cs">
+using MediatR;
+using Quorum.Application.Shared.Responses;
+
+namespace Quorum.Application.Features.Polls.CreatePoll;
+
+public record CreatePollCommand(
+    string Name, 
+    string Description, 
+    Guid UserId) : IRequest<DefaultResponse<Guid>>;
+</file>
+
+<file path="src/Quorum.Application/Features/Polls/CreatePoll/CreatePollCommandHandler.cs">
+using MediatR;
+using Quorum.Application.Shared.Responses;
+using Quorum.Domain.Entities;
+using Quorum.Domain.Repositories;
+
+namespace Quorum.Application.Features.Polls.CreatePoll;
+
+public class CreatePollCommandHandler(IPollRepository repository) : 
+    IRequestHandler<CreatePollCommand, DefaultResponse<Guid>>
+{
+    public async Task<DefaultResponse<Guid>> Handle(
+        CreatePollCommand request,
+        CancellationToken cancellationToken)
+    {
+        var poll = new Poll(
+            request.Name,
+            request.Description,
+            request.UserId);
+
+        await repository.CreateAsync(poll);
+        return DefaultResponse<Guid>.Success(poll.Id);
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/Features/Polls/GetPollById/GetPollByIdQuery.cs">
+using MediatR;
+using Quorum.Application.Shared.Polls;
+using Quorum.Application.Shared.Responses;
+
+namespace Quorum.Application.Features.Polls.GetPollById;
+
+public record GetPollByIdQuery(Guid PollId) : 
+    IRequest<DefaultResponse<PollResponseDto?>>;
+</file>
+
+<file path="src/Quorum.Application/Features/Polls/GetPollById/GetPollByIdQueryHandler.cs">
+using MediatR;
+using Quorum.Application.Shared.Polls;
+using Quorum.Application.Shared.Responses;
+using Quorum.Domain.Repositories;
+
+namespace Quorum.Application.Features.Polls.GetPollById;
+
+public class GetPollByIdQueryHandler(IPollRepository repository) :
+    IRequestHandler<GetPollByIdQuery, DefaultResponse<PollResponseDto?>>
+{
+    public async Task<DefaultResponse<PollResponseDto?>> Handle(
+        GetPollByIdQuery request,
+        CancellationToken cancellationToken)
+    {
+        var poll = await repository.GetByIdAsync(request.PollId);
+
+        return poll is null ? 
+            DefaultResponse<PollResponseDto?>.Failure("Poll could not be found.") : 
+            DefaultResponse<PollResponseDto?>.Success(poll.ToDto());
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/Interfaces/ITokenService.cs">
+namespace Quorum.Application.Interfaces;
+
+public interface ITokenService
+{
+    string Generate(Guid userId);
+}
+</file>
+
+<file path="src/Quorum.Application/Shared/Options/OptionResponseDto.cs">
+namespace Quorum.Application.Shared.Options;
+
+public record OptionResponseDto(Guid Id, string Name);
+</file>
+
+<file path="src/Quorum.Application/Shared/Polls/PollExtensions.cs">
+using Quorum.Application.Features.Polls.GetAllPolls;
+using Quorum.Application.Shared.Options;
+using Quorum.Domain.Entities;
+
+namespace Quorum.Application.Shared.Polls;
+
+public static class PollExtensions
+{
+    public static PollResponseDto ToDto(this Poll source)
+    {
+        var pollResponse = new PollResponseDto(
+            source.Id,
+            source.UserId,
+            source.Name,
+            source.Description,
+            source.CreatedAt,
+            source.LastUpdatedAt,
+            source.Options 
+                .Select(o => new OptionResponseDto(o.Id, o.Name)) 
+                .ToList()
+                .AsReadOnly()
+        );
+
+        return pollResponse;
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/Shared/Polls/PollResponseDto.cs">
+using Quorum.Application.Shared.Options;
+
+namespace Quorum.Application.Shared.Polls;
+
+public record PollResponseDto(
+    Guid Id,
+    Guid UserId,
+    string Name,
+    string Description,
+    DateTime CreatedAt,
+    DateTime LastUpdatedAt,
+    IReadOnlyList<OptionResponseDto> Options);
+</file>
+
+<file path="src/Quorum.Application/Shared/Responses/DefaultResponse.cs">
+namespace Quorum.Application.Shared.Responses;
+
+public class DefaultResponse<T>
+{
+    public bool IsSuccess { get; }
+    public string ErrorMessage { get; }
+    public T? Data { get; }
+
+    private DefaultResponse(bool isSuccess, string errorMessage, T data)
+    {
+        IsSuccess = isSuccess;
+        ErrorMessage = errorMessage;
+        Data = data;
+    }
+    
+    public static DefaultResponse<T?> Success(T? data) 
+        => new(true, string.Empty, data);
+    
+    public static DefaultResponse<T?> Failure(string message) 
+        => new(false, message, default);
+}
+</file>
+
+<file path="src/Quorum.Domain/Entities/BaseEntity.cs">
+namespace Quorum.Domain.Entities;
+
+public abstract class BaseEntity
+{
+    public Guid Id { get; } = Guid.CreateVersion7();
+}
+</file>
+
+<file path="src/Quorum.Domain/Repositories/IUserRepository.cs">
+using Quorum.Domain.Entities;
+
+namespace Quorum.Domain.Repositories;
+
+public interface IUserRepository
+{
+    Task CreateAsync(User user);
+    Task<User?> GetByEmailAsync(string email);
+    Task<User?> GetByUsernameAsync(string username);
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Auth/TokenService.cs">
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using Quorum.Application.Interfaces;
+
+namespace Quorum.Infrastructure.Auth;
+
+public class TokenService(IConfiguration configuration) : ITokenService
+{
+    public string Generate(Guid userId)
+    {
+        var jwtKey = 
+            configuration["Jwt:Key"] ?? 
+            throw new InvalidOperationException("JWT Key is not configured.");
+
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(jwtKey)
+        );
+
+        var credentials = new SigningCredentials(
+            key,
+            SecurityAlgorithms.HmacSha256
+        );
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        var token = new JwtSecurityToken(
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(1),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler()
+            .WriteToken(token);
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Migrations/20260717214201_Initial.cs">
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Quorum.Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class Initial : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AlterDatabase()
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "User",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false),
+                    Name = table.Column<string>(type: "varchar(150)", maxLength: 150, nullable: false),
+                    Email = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false),
+                    PasswordHash = table.Column<string>(type: "longtext", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_User", x => x.Id);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "Polls",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false),
+                    Name = table.Column<string>(type: "varchar(128)", maxLength: 128, nullable: false),
+                    Description = table.Column<string>(type: "varchar(128)", maxLength: 128, nullable: false),
+                    LastUpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UserId = table.Column<Guid>(type: "char(36)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Polls", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Polls_User_UserId",
+                        column: x => x.UserId,
+                        principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "Option",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false),
+                    Name = table.Column<string>(type: "varchar(150)", maxLength: 150, nullable: false),
+                    PollId = table.Column<Guid>(type: "char(36)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Option", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Option_Polls_PollId",
+                        column: x => x.PollId,
+                        principalTable: "Polls",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "Vote",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false),
+                    UserId = table.Column<Guid>(type: "char(36)", nullable: false),
+                    OptionId = table.Column<Guid>(type: "char(36)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Vote", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Vote_Option_OptionId",
+                        column: x => x.OptionId,
+                        principalTable: "Option",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Vote_User_UserId",
+                        column: x => x.UserId,
+                        principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Option_PollId",
+                table: "Option",
+                column: "PollId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Polls_UserId",
+                table: "Polls",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_User_Email",
+                table: "User",
+                column: "Email",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Vote_OptionId",
+                table: "Vote",
+                column: "OptionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Vote_UserId",
+                table: "Vote",
+                column: "UserId");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "Vote");
+
+            migrationBuilder.DropTable(
+                name: "Option");
+
+            migrationBuilder.DropTable(
+                name: "Polls");
+
+            migrationBuilder.DropTable(
+                name: "User");
+        }
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Migrations/20260717214201_Initial.Designer.cs">
+// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Quorum.Infrastructure.Persistence;
+
+#nullable disable
+
+namespace Quorum.Infrastructure.Migrations
+{
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260717214201_Initial")]
+    partial class Initial
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 64);
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<Guid>("PollId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PollId");
+
+                    b.ToTable("Option");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Polls");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("User");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Vote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("OptionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OptionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Vote");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
+                {
+                    b.HasOne("Quorum.Domain.Entities.Poll", "Poll")
+                        .WithMany("Options")
+                        .HasForeignKey("PollId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Poll");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>
+                {
+                    b.HasOne("Quorum.Domain.Entities.User", "User")
+                        .WithMany("Polls")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.User", b =>
+                {
+                    b.OwnsOne("Quorum.Domain.ValueObjects.Password", "Password", b1 =>
+                        {
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("char(36)");
+
+                            b1.Property<string>("Hash")
+                                .IsRequired()
+                                .HasColumnType("longtext")
+                                .HasColumnName("PasswordHash");
+
+                            b1.HasKey("UserId");
+
+                            b1.ToTable("User");
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
+                    b.Navigation("Password")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Vote", b =>
+                {
+                    b.HasOne("Quorum.Domain.Entities.Option", "Option")
+                        .WithMany("Votes")
+                        .HasForeignKey("OptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Quorum.Domain.Entities.User", "User")
+                        .WithMany("Votes")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Option");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
+                {
+                    b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.User", b =>
+                {
+                    b.Navigation("Polls");
+
+                    b.Navigation("Votes");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Migrations/20260720194124_SecondMigrationTest.cs">
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Quorum.Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class SecondMigrationTest : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Polls_User_UserId",
+                table: "Polls");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Vote_User_UserId",
+                table: "Vote");
+
+            migrationBuilder.DropPrimaryKey(
+                name: "PK_User",
+                table: "User");
+
+            migrationBuilder.RenameTable(
+                name: "User",
+                newName: "Users");
+
+            migrationBuilder.RenameIndex(
+                name: "IX_User_Email",
+                table: "Users",
+                newName: "IX_Users_Email");
+
+            migrationBuilder.AddPrimaryKey(
+                name: "PK_Users",
+                table: "Users",
+                column: "Id");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Polls_Users_UserId",
+                table: "Polls",
+                column: "UserId",
+                principalTable: "Users",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Vote_Users_UserId",
+                table: "Vote",
+                column: "UserId",
+                principalTable: "Users",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Polls_Users_UserId",
+                table: "Polls");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Vote_Users_UserId",
+                table: "Vote");
+
+            migrationBuilder.DropPrimaryKey(
+                name: "PK_Users",
+                table: "Users");
+
+            migrationBuilder.RenameTable(
+                name: "Users",
+                newName: "User");
+
+            migrationBuilder.RenameIndex(
+                name: "IX_Users_Email",
+                table: "User",
+                newName: "IX_User_Email");
+
+            migrationBuilder.AddPrimaryKey(
+                name: "PK_User",
+                table: "User",
+                column: "Id");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Polls_User_UserId",
+                table: "Polls",
+                column: "UserId",
+                principalTable: "User",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Vote_User_UserId",
+                table: "Vote",
+                column: "UserId",
+                principalTable: "User",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+        }
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Migrations/20260720194124_SecondMigrationTest.Designer.cs">
+// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Quorum.Infrastructure.Persistence;
+
+#nullable disable
+
+namespace Quorum.Infrastructure.Migrations
+{
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260720194124_SecondMigrationTest")]
+    partial class SecondMigrationTest
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 64);
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<Guid>("PollId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PollId");
+
+                    b.ToTable("Option");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Polls");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Vote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("OptionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OptionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Vote");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
+                {
+                    b.HasOne("Quorum.Domain.Entities.Poll", "Poll")
+                        .WithMany("Options")
+                        .HasForeignKey("PollId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Poll");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>
+                {
+                    b.HasOne("Quorum.Domain.Entities.User", "User")
+                        .WithMany("Polls")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.User", b =>
+                {
+                    b.OwnsOne("Quorum.Domain.ValueObjects.Password", "Password", b1 =>
+                        {
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("char(36)");
+
+                            b1.Property<string>("Hash")
+                                .IsRequired()
+                                .HasColumnType("longtext")
+                                .HasColumnName("PasswordHash");
+
+                            b1.HasKey("UserId");
+
+                            b1.ToTable("Users");
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
+                    b.Navigation("Password")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Vote", b =>
+                {
+                    b.HasOne("Quorum.Domain.Entities.Option", "Option")
+                        .WithMany("Votes")
+                        .HasForeignKey("OptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Quorum.Domain.Entities.User", "User")
+                        .WithMany("Votes")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Option");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
+                {
+                    b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.User", b =>
+                {
+                    b.Navigation("Polls");
+
+                    b.Navigation("Votes");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Migrations/AppDbContextModelSnapshot.cs">
+// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Quorum.Infrastructure.Persistence;
+
+#nullable disable
+
+namespace Quorum.Infrastructure.Migrations
+{
+    [DbContext(typeof(AppDbContext))]
+    partial class AppDbContextModelSnapshot : ModelSnapshot
+    {
+        protected override void BuildModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 64);
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<Guid>("PollId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PollId");
+
+                    b.ToTable("Option");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Polls");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Vote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("OptionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OptionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Vote");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
+                {
+                    b.HasOne("Quorum.Domain.Entities.Poll", "Poll")
+                        .WithMany("Options")
+                        .HasForeignKey("PollId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Poll");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>
+                {
+                    b.HasOne("Quorum.Domain.Entities.User", "User")
+                        .WithMany("Polls")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.User", b =>
+                {
+                    b.OwnsOne("Quorum.Domain.ValueObjects.Password", "Password", b1 =>
+                        {
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("char(36)");
+
+                            b1.Property<string>("Hash")
+                                .IsRequired()
+                                .HasColumnType("longtext")
+                                .HasColumnName("PasswordHash");
+
+                            b1.HasKey("UserId");
+
+                            b1.ToTable("Users");
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
+                    b.Navigation("Password")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Vote", b =>
+                {
+                    b.HasOne("Quorum.Domain.Entities.Option", "Option")
+                        .WithMany("Votes")
+                        .HasForeignKey("OptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Quorum.Domain.Entities.User", "User")
+                        .WithMany("Votes")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Option");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Option", b =>
+                {
+                    b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.Poll", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("Quorum.Domain.Entities.User", b =>
+                {
+                    b.Navigation("Polls");
+
+                    b.Navigation("Votes");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Persistence/Configurations/OptionCinfiguration.cs">
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Quorum.Domain.Entities;
+
+namespace Quorum.Infrastructure.Persistence.Configurations;
+
+public class OptionCinfiguration : IEntityTypeConfiguration<Option>
+{
+    public void Configure(EntityTypeBuilder<Option> builder)
+    {
+        builder.HasKey(o => o.Id);
+        
+        builder.Property(o => o.Name)
+            .IsRequired()
+            .HasMaxLength(150);
+
+        builder.HasOne(o => o.Poll)
+            .WithMany(p => p.Options)
+            .HasForeignKey(o => o.PollId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(o => o.Votes)
+            .WithOne(o => o.Option)
+            .HasForeignKey(o => o.OptionId);
+        
+        builder.Navigation(o => o.Votes)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Persistence/Configurations/PollConfiguration.cs">
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Quorum.Domain.Entities;
+
+namespace Quorum.Infrastructure.Persistence.Configurations;
+
+public class PollConfiguration : IEntityTypeConfiguration<Poll>
+{
+    public void Configure(EntityTypeBuilder<Poll> builder)
+    {
+        builder.HasKey(p => p.Id);
+        
+        builder.Property(p => p.Name)
+            .IsRequired()
+            .HasMaxLength(128);
+        
+        builder.Property(p => p.Description)
+            .IsRequired()
+            .HasMaxLength(128);
+        
+        builder.Navigation(p => p.Options)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        
+        builder.HasOne(p => p.User)
+            .WithMany(u => u.Polls)
+            .HasForeignKey(p => p.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
+        builder.HasMany(p => p.Options)
+            .WithOne(o => o.Poll)
+            .HasForeignKey(o => o.PollId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Persistence/Configurations/UserConfiguration.cs">
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Quorum.Domain.Entities;
+
+namespace Quorum.Infrastructure.Persistence.Configurations;
+
+public class UserConfiguration : IEntityTypeConfiguration<User>
+{
+    public void Configure(EntityTypeBuilder<User> builder)
+    {
+        builder.HasKey(u => u.Id);
+
+        builder.Property(u => u.Name)
+            .IsRequired()
+            .HasMaxLength(150);
+
+        builder.Property(u => u.Email)
+            .IsRequired()
+            .HasMaxLength(255);
+        
+        builder.HasIndex(u => u.Email)
+            .IsUnique();
+
+        builder.OwnsOne(u => u.Password, p =>
+        {
+            p.Property(pwd => pwd.Hash)
+                .HasColumnName("PasswordHash")
+                .IsRequired();
+        });
+
+        builder.Navigation(u => u.Polls)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        
+        builder.HasMany(u => u.Votes)
+            .WithOne(u => u.User)
+            .HasForeignKey(u => u.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
+        builder.Navigation(u => u.Votes)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Persistence/Configurations/VoteConfiguration.cs">
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Quorum.Domain.Entities;
+
+namespace Quorum.Infrastructure.Persistence.Configurations;
+
+public class VoteConfiguration : IEntityTypeConfiguration<Vote>
+{
+    public void Configure(EntityTypeBuilder<Vote> builder)
+    {
+        builder.HasKey(v => v.Id);
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Persistence/Repositories/UserRepository.cs">
+using Microsoft.EntityFrameworkCore;
+using Quorum.Domain.Entities;
+using Quorum.Domain.Repositories;
+
+namespace Quorum.Infrastructure.Persistence.Repositories;
+
+public class UserRepository(AppDbContext context) : IUserRepository
+{
+    public async Task CreateAsync(User user)
+    {
+        await context.Users.AddAsync(user);
+        await context.SaveChangesAsync();
+    }
+
+    public async Task<User?> GetByEmailAsync(string email) 
+        => await context.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+    public async Task<User?> GetByUsernameAsync(string username) 
+        => await context.Users.FirstOrDefaultAsync(u => u.Name == username);
+}
+</file>
+
+<file path=".dockerignore">
+**/.dockerignore
+**/.env
+**/.git
+**/.gitignore
+**/.project
+**/.settings
+**/.toolstarget
+**/.vs
+**/.vscode
+**/.idea
+**/*.*proj.user
+**/*.dbmdl
+**/*.jfm
+**/azds.yaml
+**/bin
+**/charts
+**/docker-compose*
+**/Dockerfile*
+**/node_modules
+**/npm-debug.log
+**/obj
+**/secrets.dev.yaml
+**/values.dev.yaml
+LICENSE
+README.md
+</file>
+
+<file path="docker-compose.yml">
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: quorum-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    ports:
+      - "3307:3306"
+    volumes:
+      - quorum_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Quorum.API/Dockerfile
+    container_name: quorum-api
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: "Server=mysql;Port=3306;Database=${MYSQL_DATABASE};User=root;Password=${MYSQL_ROOT_PASSWORD};"
+      Jwt__Key: ${JWT_KEY}
+    ports:
+      - "8080:8080"
+
+volumes:
+  quorum_mysql_data:
+</file>
+
+<file path="src/Quorum.API/Controllers/PollController.cs">
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Quorum.Application.Features.Options;
+using Quorum.Application.Features.Polls.CreatePoll;
+using Quorum.Application.Features.Polls.GetAllPolls;
+using Quorum.Application.Features.Polls.GetPollById;
+
+namespace Quorum.API.Controllers;
+
+[ApiController]
+[Route("api/polls")]
+public class PollController(IMediator mediator) : ControllerBase
+{
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var result = await mediator.Send(new GetAllPollsQuery());
+
+        return !result.IsSuccess ? 
+            NotFound(result.ErrorMessage) : 
+            Ok(result.Data);
+    }
+
+    [HttpGet("{pollId:guid}")]
+    public async Task<IActionResult> GetById(Guid pollId)
+    {
+        var query = new GetPollByIdQuery(pollId);
+        var result = await mediator.Send(query);
+        
+        return !result.IsSuccess ?
+            NotFound(result.ErrorMessage) :
+            Ok(result.Data);
+    }
+
+    [HttpPost]
+    //[Authorize]
+    public async Task<IActionResult> Create([FromBody] CreatePollCommand command)
+    {
+        var result = await mediator.Send(command);
+        
+        return !result.IsSuccess ?
+            BadRequest(result.ErrorMessage) :
+            Ok(result.Data);
+    }
+
+    [HttpPost("{pollId:guid}/options")]
+    //[Authorize]
+    public async Task<IActionResult> Vote(
+        Guid pollId, 
+        [FromBody] string name)
+    {
+        var result = 
+            await mediator.Send(new CreateOptionCommand(name, pollId));
+
+        return !result.IsSuccess ? 
+            BadRequest(result.ErrorMessage) : 
+            Created();
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/Features/Polls/GetAllPolls/GetAllPollsQuery.cs">
+using MediatR;
+using Quorum.Application.Shared.Polls;
+using Quorum.Application.Shared.Responses;
+
+namespace Quorum.Application.Features.Polls.GetAllPolls;
+
+public record GetAllPollsQuery : 
+    IRequest<DefaultResponse<IReadOnlyList<PollResponseDto>>>;
+</file>
+
+<file path="src/Quorum.Application/Features/Polls/GetAllPolls/GetAllPollsQueryHandler.cs">
+using MediatR;
+using Quorum.Application.Shared.Polls;
+using Quorum.Application.Shared.Responses;
+using Quorum.Domain.Repositories;
+
+namespace Quorum.Application.Features.Polls.GetAllPolls;
+
+public class GetAllPollsQueryHandler(IPollRepository repository) : 
+    IRequestHandler<GetAllPollsQuery, 
+    DefaultResponse<IReadOnlyList<PollResponseDto>>>
+{
+    public async Task<DefaultResponse<IReadOnlyList<PollResponseDto>>> Handle(
+        GetAllPollsQuery request, 
+        CancellationToken cancellationToken)
+    {
+        var polls = await repository.GetAllAsync();
+        if (polls.Count == 0)
+            return DefaultResponse<IReadOnlyList<PollResponseDto>>
+                .Failure("No Polls found.")!;
+        
+        var pollsResponse = polls.Select(p => p.ToDto()).ToList();
+
+        return DefaultResponse<IReadOnlyList<PollResponseDto>>
+            .Success(pollsResponse.AsReadOnly())!;
+    }
+}
+</file>
+
+<file path="src/Quorum.Application/DependencyInjection.cs">
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Quorum.Application;
+
+public static class DependencyInjection
+{
+    public static void AddApplication(this IServiceCollection services)
+    {
+        services.AddMediatR(cfg =>
+        {
+            cfg.RegisterServicesFromAssembly(
+                typeof(DependencyInjection).Assembly);
+        });
+    }
+}
 </file>
 
 <file path="src/Quorum.Application/Quorum.Application.csproj">
@@ -614,6 +1842,264 @@ GET {{HostAddress}}/api/polls
 </Project>
 </file>
 
+<file path="src/Quorum.Domain/Entities/Option.cs">
+namespace Quorum.Domain.Entities;
+
+public class Option : BaseEntity
+{
+    public string Name { get; }
+    
+    public Guid PollId { get; }
+    public Poll Poll { get; } = null!;
+    
+    public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
+    private readonly List<Vote> _votes = [];
+
+    private Option() { }
+
+    public Option(string name, Guid pollId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        
+        Name = name;
+        PollId = pollId;
+    }
+
+    public bool AddVote(Guid userId)
+    {
+        if (_votes.Any(v => v.UserId == userId))
+            return false;
+
+        var vote = new Vote(userId, Id);
+        _votes.Add(vote);
+
+        return true;
+    }
+
+    public bool RemoveVote(Guid userId)
+    {
+        if (_votes.All(v => v.UserId != userId))
+            return false;
+        
+        _votes.RemoveAll(v => v.UserId == userId);
+        return true;
+    }
+}
+</file>
+
+<file path="src/Quorum.Domain/Entities/Poll.cs">
+namespace Quorum.Domain.Entities;
+
+public class Poll : BaseEntity
+{
+    public string Name { get; private set; }
+    public string Description { get; private set; }
+
+    public DateTime CreatedAt { get; }
+    public DateTime LastUpdatedAt { get; private set; }
+
+    public IReadOnlyList<Option> Options => _options.AsReadOnly();
+    private readonly List<Option> _options = [];
+    
+    public Guid UserId { get; }
+    public User User { get; } = null!;
+
+    private Poll() { }
+    
+    public Poll(string name, string description, Guid userId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrEmpty(description);
+        
+        Name = name;
+        Description = description;
+        UserId = userId;
+        
+        CreatedAt = DateTime.UtcNow;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
+    public bool UpdateName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return false;
+        
+        Name = name;
+        UpdateLastUpdatedAt();
+        
+        return true;
+    }
+
+    public bool UpdateDescription(string description)
+    {
+        if (string.IsNullOrEmpty(description))
+            return false;
+        
+        Description = description;
+        UpdateLastUpdatedAt();
+        
+        return true;
+    }
+
+    public void AddOption(string name)
+    {
+        var option = new Option(name, Id);
+        _options.Add(option);
+        
+        //UpdateLastUpdatedAt();
+    }
+
+    public bool RemoveOption(Guid optionId)
+    {
+        var option = _options.Find(o => o.Id == optionId);
+        if (option is null) 
+            return false;
+
+        if (!_options.Remove(option)) 
+            return false;
+        
+        UpdateLastUpdatedAt();
+        return true;
+    }
+
+    public bool AddVote(Guid optionId, Guid userId)
+    {
+        var option = _options.Find(o => o.Id == optionId);
+        if (option is null) 
+            return false;
+
+        if (!option.AddVote(userId))
+            return false; 
+        
+        UpdateLastUpdatedAt();
+        return true;
+    }
+
+    public bool RemoveVote(Guid optionId, Guid userId)
+    {
+        var option = _options.Find(o => o.Id == optionId);
+        if (option is null) 
+            return false;
+
+        if (!option.RemoveVote(userId))
+            return false;
+
+        UpdateLastUpdatedAt();
+        return true;
+    }
+    
+    private void UpdateLastUpdatedAt()
+    {
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+}
+</file>
+
+<file path="src/Quorum.Domain/Entities/User.cs">
+using Quorum.Domain.ValueObjects;
+
+namespace Quorum.Domain.Entities;
+
+public class User : BaseEntity 
+{
+    public string Name { get; private set; }
+    public string Email { get; private set; }
+    public Password Password { get; }
+
+    public IReadOnlyList<Poll> Polls => _polls.AsReadOnly();
+    private readonly List<Poll> _polls = [];
+    
+    public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
+    private readonly List<Vote> _votes = [];
+
+    private User() { }
+    
+    public User(string name, string email, string passwordHash)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrEmpty(email);
+        
+        Name = name;
+        Email = email;
+        Password = Password.Create(passwordHash);
+    }
+
+    public bool VerifyPassword(string plainTextPassword) 
+        => Password.Verify(plainTextPassword);
+}
+</file>
+
+<file path="src/Quorum.Domain/Entities/Vote.cs">
+namespace Quorum.Domain.Entities;
+
+public class Vote : BaseEntity
+{
+    public DateTime VotedAt { get; }
+    
+    public Guid UserId { get; }
+    public User User { get; } = null!;
+    
+    public Guid OptionId { get; }
+    public Option Option { get; } = null!;
+
+    private Vote() { }
+    
+    public Vote(Guid userId, Guid optionId)
+    {
+        VotedAt = DateTime.UtcNow;
+        
+        UserId = userId;
+        OptionId = optionId;
+    }
+}
+</file>
+
+<file path="src/Quorum.Domain/Repositories/IPollRepository.cs">
+using Quorum.Domain.Entities;
+
+namespace Quorum.Domain.Repositories;
+
+public interface IPollRepository
+{
+    Task CreateAsync(Poll poll);
+    
+    Task<IReadOnlyList<Poll>> GetAllAsync();
+    Task<Poll?> GetByIdAsync(Guid id);
+}
+</file>
+
+<file path="src/Quorum.Domain/ValueObjects/Password.cs">
+namespace Quorum.Domain.ValueObjects;
+
+public class Password
+{
+    public string Hash { get; }
+
+    private Password() { }
+
+    private Password(string hash)
+    {
+        Hash = hash;
+    }
+
+    public static Password Create(string plainTextPassword)
+    {
+        if (string.IsNullOrWhiteSpace(plainTextPassword))
+            throw new ArgumentException("Password cannot be null or whitespace.");
+
+        if (plainTextPassword.Length < 8)
+            throw new ArgumentException("Password must be  at least 8 characters long.");
+
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(plainTextPassword);
+
+        return new Password(passwordHash);
+    }
+
+    public bool Verify(string plainTextPassword) 
+        => BCrypt.Net.BCrypt.Verify(plainTextPassword, Hash);
+}
+</file>
+
 <file path="src/Quorum.Domain/Quorum.Domain.csproj">
 <Project Sdk="Microsoft.NET.Sdk">
 
@@ -630,40 +2116,129 @@ GET {{HostAddress}}/api/polls
 </Project>
 </file>
 
-<file path="src/Quorum.Infrastructure/Quorum.Infrastructure.csproj">
-<Project Sdk="Microsoft.NET.Sdk">
+<file path="src/Quorum.Infrastructure/Persistence/Repositories/PollRepository.cs">
+using Microsoft.EntityFrameworkCore;
+using Quorum.Domain.Entities;
+using Quorum.Domain.Repositories;
 
-    <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-    </PropertyGroup>
+namespace Quorum.Infrastructure.Persistence.Repositories;
 
-    <ItemGroup>
-      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
-        <PrivateAssets>all</PrivateAssets>
-        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      </PackageReference>
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.10">
-        <PrivateAssets>all</PrivateAssets>
-        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      </PackageReference>
-      <PackageReference Include="MySql.EntityFrameworkCore" Version="10.0.7" />
-    </ItemGroup>
+public class PollRepository(AppDbContext context) : IPollRepository
+{
+    public async Task CreateAsync(Poll poll)
+    {
+        await context.Polls.AddAsync(poll);
+        await context.SaveChangesAsync();
+    }
 
-    <ItemGroup>
-      <ProjectReference Include="..\Quorum.Application\Quorum.Application.csproj" />
-      <ProjectReference Include="..\Quorum.Domain\Quorum.Domain.csproj" />
-    </ItemGroup>
+    public async Task<IReadOnlyList<Poll>> GetAllAsync()
+    {
+        var polls = 
+            await context.Polls 
+                .Include(p => p.Options) 
+                .AsNoTracking()
+                .ToListAsync();
+        
+        return polls.AsReadOnly();
+    }
 
-    <ItemGroup>
-      <Reference Include="Microsoft.Extensions.Configuration.Abstractions">
-        <HintPath>C:\Program Files\dotnet\shared\Microsoft.AspNetCore.App\10.0.9\Microsoft.Extensions.Configuration.Abstractions.dll</HintPath>
-      </Reference>
-    </ItemGroup>
+    public Task<Poll?> GetByIdAsync(Guid id)
+    {
+        var poll = context.Polls
+            .Include(p => p.Options)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
-</Project>
+        return poll!;
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/Persistence/AppDbContext.cs">
+using Microsoft.EntityFrameworkCore;
+using Quorum.Domain.Entities;
+
+namespace Quorum.Infrastructure.Persistence;
+
+public class AppDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<Poll> Polls { get; set; }
+    public DbSet<User> Users { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        base.OnModelCreating(modelBuilder);
+    }
+}
+</file>
+
+<file path="src/Quorum.Infrastructure/DependencyInjection.cs">
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+using Quorum.Application.Interfaces;
+using Quorum.Domain.Repositories;
+using Quorum.Infrastructure.Auth;
+using Quorum.Infrastructure.Persistence;
+using Quorum.Infrastructure.Persistence.Repositories;
+
+namespace Quorum.Infrastructure;
+
+public static class DependencyInjection
+{
+    extension(IServiceCollection services)
+    {
+        public void AddInfrastructure(IConfiguration configuration)
+        { 
+            services.AddDbContext(configuration);
+
+            services.AddJwtAuthentication(configuration);
+
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<ITokenService, TokenService>();
+            services.AddScoped<IPollRepository, PollRepository>();
+            services.AddScoped<IUserRepository, UserRepository>();
+        }
+
+        private void AddDbContext(IConfiguration configuration)
+        {
+            var connectionString = configuration.GetConnectionString("Default");
+        
+            services.AddDbContext<AppDbContext>(options =>
+            {
+                options.UseMySQL(connectionString!);
+            });
+        }
+
+        private void AddJwtAuthentication(IConfiguration configuration)
+        {
+            var jwtKey = 
+                configuration["Jwt:Key"] ?? 
+                throw new InvalidOperationException("JWT Key not configured.");
+
+            services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(jwtKey)
+                        ),
+
+                        ValidateIssuer = false,
+                        ValidateAudience = false,
+
+                        ValidateLifetime = true
+                    };
+                });
+        }
+    }
+}
 </file>
 
 <file path=".gitignore">
@@ -1149,6 +2724,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+repomix-output.xml
 </file>
 
 <file path="Quorum.slnx">
@@ -1161,6 +2737,108 @@ $RECYCLE.BIN/
   </Folder>
   <Folder Name="/tests/" />
 </Solution>
+</file>
+
+<file path="src/Quorum.API/Program.cs">
+using Quorum.Application;
+using Quorum.Infrastructure;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+</file>
+
+<file path="src/Quorum.API/Quorum.API.csproj">
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UserSecretsId>0ee0a153-ca63-466e-869d-9cdc964a65c9</UserSecretsId>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MediatR" Version="14.2.0" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="10.2.3" />
+        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.2.3" />
+        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.2.3" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Quorum.Infrastructure\Quorum.Infrastructure.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="..\..\.dockerignore">
+        <Link>.dockerignore</Link>
+      </Content>
+    </ItemGroup>
+
+</Project>
+</file>
+
+<file path="src/Quorum.Infrastructure/Quorum.Infrastructure.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.10">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="MySql.EntityFrameworkCore" Version="10.0.7" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Quorum.Application\Quorum.Application.csproj" />
+      <ProjectReference Include="..\Quorum.Domain\Quorum.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="Microsoft.Extensions.Configuration.Abstractions">
+        <HintPath>C:\Program Files\dotnet\shared\Microsoft.AspNetCore.App\10.0.9\Microsoft.Extensions.Configuration.Abstractions.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+</Project>
 </file>
 
 </files>
