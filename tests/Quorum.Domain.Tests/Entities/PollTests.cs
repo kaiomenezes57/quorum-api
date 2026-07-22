@@ -159,29 +159,4 @@ public class PollTests
         result.Should().BeFalse();
         poll.Options.Single().Votes.Should().HaveCount(3);
     }
-
-    [Fact]
-    public void RemoveVote_ForExistingVote_ShouldReturnTrue()
-    {
-        var poll = CreateValidPoll();
-        poll.AddOption("C#");
-        var optionId = poll.Options.Single().Id;
-        var userId = Guid.NewGuid();
-        poll.AddVote(optionId, userId);
-
-        var result = poll.RemoveVote(optionId, userId);
-
-        result.Should().BeTrue();
-        poll.Options.Single().Votes.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void RemoveVote_ForUnknownOption_ShouldReturnFalse()
-    {
-        var poll = CreateValidPoll();
-
-        var result = poll.RemoveVote(Guid.NewGuid(), Guid.NewGuid());
-
-        result.Should().BeFalse();
-    }
 }

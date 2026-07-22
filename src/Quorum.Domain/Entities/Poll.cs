@@ -1,4 +1,6 @@
-﻿namespace Quorum.Domain.Entities;
+﻿using Quorum.Domain.Enums;
+
+namespace Quorum.Domain.Entities;
 
 public class Poll : BaseEntity
 {
@@ -75,7 +77,10 @@ public class Poll : BaseEntity
     public bool AddVote(Guid optionId, Guid userId)
     {
         if (IsFinished())
+        {
+            SetPredictionsResults();
             return false;
+        }
 
         if (_options.Find(o => o.Id == optionId)
             is not { } option) 
@@ -112,9 +117,25 @@ public class Poll : BaseEntity
         }
     }
 
+    private void SetPredictionsResults()
+    {
+        if (_options.Count == 0)
+            return;
+
+        foreach (var prediction in _options.SelectMany(o => o.Predictions))
+            prediction.SetResult(PredictionResult.Failed);
+
+        if (_options.MaxBy(o => o.Votes.Count) 
+            is not { } winningOption) 
+            return;
+        
+        foreach (var prediction in winningOption.Predictions)
+            prediction.SetResult(PredictionResult.Success);
+    }
+
     private bool IsFinished()
     {
-        var totalVotes = _options.Sum(option => option.Votes.Count);
+        var totalVotes = _options.Sum(o => o.Votes.Count);
         return totalVotes >= VoteGoal;
     }
     
