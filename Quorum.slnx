@@ -5,5 +5,7 @@
     <Project Path="src/Quorum.Domain/Quorum.Domain.csproj" />
     <Project Path="src/Quorum.Infrastructure/Quorum.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/tests/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/Quorum.Domain.Tests/Quorum.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
