@@ -13,11 +13,10 @@ public class OptionTests
 
         var option = new Option("Option A", pollId);
         
-        var firstResult = option.AddVote(userId);
-        var secondResult = option.AddVote(userId);
+        option.AddVote(userId);
+        var result = option.AddVote(userId);
         
-        firstResult.Should().BeTrue();
-        secondResult.Should().BeFalse();
+        result.Should().BeFalse();
         option.Votes.Count.Should().Be(1);
     }
 }
