@@ -1,5 +1,4 @@
-﻿using Quorum.Application.Features.Polls.GetAllPolls;
-using Quorum.Application.Shared.Options;
+﻿using Quorum.Application.Shared.Options;
 using Quorum.Domain.Entities;
 
 namespace Quorum.Application.Shared.Polls;
@@ -13,6 +12,8 @@ public static class PollExtensions
             source.UserId,
             source.Name,
             source.Description,
+            source.VoteGoal,
+            source.Options.Count,
             source.CreatedAt,
             source.LastUpdatedAt,
             source.Options 

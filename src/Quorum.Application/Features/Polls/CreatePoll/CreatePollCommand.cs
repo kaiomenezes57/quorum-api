@@ -6,4 +6,5 @@ namespace Quorum.Application.Features.Polls.CreatePoll;
 public record CreatePollCommand(
     string Name, 
     string Description, 
-    Guid UserId) : IRequest<DefaultResponse<Guid>>;
+    Guid UserId,
+    int VoteGoal) : IRequest<DefaultResponse<Guid>>;

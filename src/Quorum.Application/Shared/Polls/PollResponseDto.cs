@@ -7,6 +7,8 @@ public record PollResponseDto(
     Guid UserId,
     string Name,
     string Description,
+    int VoteGoal,
+    int VoteCount,
     DateTime CreatedAt,
     DateTime LastUpdatedAt,
     IReadOnlyList<OptionResponseDto> Options);

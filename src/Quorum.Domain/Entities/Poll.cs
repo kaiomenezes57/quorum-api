@@ -5,6 +5,7 @@ public class Poll : BaseEntity
     public string Name { get; private set; }
     public string Description { get; private set; }
 
+    public int VoteGoal { get; }
     public DateTime CreatedAt { get; }
     public DateTime LastUpdatedAt { get; private set; }
 
@@ -16,36 +17,30 @@ public class Poll : BaseEntity
 
     private Poll() { }
     
-    public Poll(string name, string description, Guid userId)
+    public Poll(string name, string description, Guid userId, int voteGoal)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentException.ThrowIfNullOrEmpty(description);
-        
+        ArgumentOutOfRangeException.ThrowIfLessThan(voteGoal, 3);
+
         Name = name;
         Description = description;
+        VoteGoal = voteGoal;
         UserId = userId;
         
         CreatedAt = DateTime.UtcNow;
         LastUpdatedAt = DateTime.UtcNow;
     }
 
-    public bool UpdateName(string name)
+    public bool UpdateInformation(string name, string description)
     {
-        if (string.IsNullOrEmpty(name))
+        if (string.IsNullOrEmpty(name) || 
+            string.IsNullOrEmpty(description))
             return false;
         
         Name = name;
-        UpdateLastUpdatedAt();
-        
-        return true;
-    }
-
-    public bool UpdateDescription(string description)
-    {
-        if (string.IsNullOrEmpty(description))
-            return false;
-        
         Description = description;
+        
         UpdateLastUpdatedAt();
         
         return true;
@@ -66,8 +61,8 @@ public class Poll : BaseEntity
 
     public bool RemoveOption(Guid optionId)
     {
-        var option = _options.Find(o => o.Id == optionId);
-        if (option is null) 
+        if (_options.Find(o => o.Id == optionId) 
+            is not { } option)
             return false;
 
         if (!_options.Remove(option)) 
@@ -79,12 +74,15 @@ public class Poll : BaseEntity
 
     public bool AddVote(Guid optionId, Guid userId)
     {
-        var option = _options.Find(o => o.Id == optionId);
-        if (option is null) 
+        if (IsFinished())
             return false;
 
+        if (_options.Find(o => o.Id == optionId)
+            is not { } option) 
+            return false;
+        
         if (!option.AddVote(userId))
-            return false; 
+            return false;
         
         UpdateLastUpdatedAt();
         return true;
@@ -92,8 +90,8 @@ public class Poll : BaseEntity
 
     public bool RemoveVote(Guid optionId, Guid userId)
     {
-        var option = _options.Find(o => o.Id == optionId);
-        if (option is null) 
+        if (_options.Find(o => o.Id == optionId) 
+            is not { } option) 
             return false;
 
         if (!option.RemoveVote(userId))
@@ -102,9 +100,13 @@ public class Poll : BaseEntity
         UpdateLastUpdatedAt();
         return true;
     }
-    
-    private void UpdateLastUpdatedAt()
+
+    private bool IsFinished()
     {
-        LastUpdatedAt = DateTime.UtcNow;
+        var totalVotes = _options.Sum(option => option.Votes.Count);
+        return totalVotes >= VoteGoal;
     }
+    
+    private void UpdateLastUpdatedAt() 
+        => LastUpdatedAt = DateTime.UtcNow;
 }

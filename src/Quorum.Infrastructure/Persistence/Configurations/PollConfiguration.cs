@@ -20,6 +20,9 @@ public class PollConfiguration : IEntityTypeConfiguration<Poll>
         builder.Property(p => p.Description)
             .IsRequired()
             .HasMaxLength(128);
+
+        builder.Property(p => p.VoteGoal)
+            .IsRequired();
         
         builder.Navigation(p => p.Options)
             .UsePropertyAccessMode(PropertyAccessMode.Field);

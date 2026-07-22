@@ -15,7 +15,8 @@ public class CreatePollCommandHandler(IPollRepository repository) :
         var poll = new Poll(
             request.Name,
             request.Description,
-            request.UserId);
+            request.UserId,
+            request.VoteGoal);
 
         await repository.CreateAsync(poll);
         return DefaultResponse<Guid>.Success(poll.Id);
