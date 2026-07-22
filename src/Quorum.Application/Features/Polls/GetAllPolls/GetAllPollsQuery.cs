@@ -5,4 +5,4 @@ using Quorum.Application.Shared.Responses;
 namespace Quorum.Application.Features.Polls.GetAllPolls;
 
 public record GetAllPollsQuery : 
-    IRequest<DefaultResponse<IReadOnlyList<PollResponseDto>>>;
+    IRequest<WebResponse<IReadOnlyList<PollResponseDto>>>;

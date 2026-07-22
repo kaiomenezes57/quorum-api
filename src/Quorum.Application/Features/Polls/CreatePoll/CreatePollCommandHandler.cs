@@ -6,9 +6,9 @@ using Quorum.Domain.Repositories;
 namespace Quorum.Application.Features.Polls.CreatePoll;
 
 public class CreatePollCommandHandler(IPollRepository repository) : 
-    IRequestHandler<CreatePollCommand, DefaultResponse<Guid>>
+    IRequestHandler<CreatePollCommand, WebResponse<Guid>>
 {
-    public async Task<DefaultResponse<Guid>> Handle(
+    public async Task<WebResponse<Guid>> Handle(
         CreatePollCommand request,
         CancellationToken cancellationToken)
     {
@@ -19,6 +19,6 @@ public class CreatePollCommandHandler(IPollRepository repository) :
             request.VoteGoal);
 
         await repository.CreateAsync(poll);
-        return DefaultResponse<Guid>.Success(poll.Id);
+        return WebResponse<Guid>.Success(poll.Id);
     }
 }

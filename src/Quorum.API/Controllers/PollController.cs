@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Quorum.Application.Features.Options;
+using Quorum.Application.Features.Options.CreateOption;
 using Quorum.Application.Features.Polls.CreatePoll;
 using Quorum.Application.Features.Polls.GetAllPolls;
 using Quorum.Application.Features.Polls.GetPollById;

@@ -7,4 +7,4 @@ public record CreatePollCommand(
     string Name, 
     string Description, 
     Guid UserId,
-    int VoteGoal) : IRequest<DefaultResponse<Guid>>;
+    int VoteGoal) : IRequest<WebResponse<Guid>>;

@@ -101,6 +101,19 @@ public class Poll : BaseEntity
         return true;
     }
 
+    public bool AddPrediction(Guid optionId, Guid userId)
+    {
+        if (_options.Find(o => o.Id == optionId) 
+            is not { } option) 
+            return false;
+
+        if (!option.AddPrediction(userId))
+            return false;
+        
+        UpdateLastUpdatedAt();
+        return true;
+    }
+
     private bool IsFinished()
     {
         var totalVotes = _options.Sum(option => option.Votes.Count);

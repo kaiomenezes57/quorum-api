@@ -13,6 +13,9 @@ public class User : BaseEntity
     
     public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
     private readonly List<Vote> _votes = [];
+    
+    public IReadOnlyList<Prediction> Predictions => _predictions.AsReadOnly();
+    private readonly List<Prediction> _predictions = [];
 
     private User() { }
     

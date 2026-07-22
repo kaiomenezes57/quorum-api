@@ -9,6 +9,9 @@ public class Option : BaseEntity
     
     public IReadOnlyList<Vote> Votes => _votes.AsReadOnly();
     private readonly List<Vote> _votes = [];
+    
+    public IReadOnlyList<Prediction> Predictions => _predictions.AsReadOnly();
+    private readonly List<Prediction> _predictions = [];
 
     private Option() { }
 
@@ -37,6 +40,17 @@ public class Option : BaseEntity
             return false;
         
         _votes.RemoveAll(v => v.UserId == userId);
+        return true;
+    }
+
+    public bool AddPrediction(Guid userId)
+    {
+        if (_predictions.Any(p => p.UserId == userId))
+            return false;
+        
+        var prediction = new Prediction(userId, PollId, Id);
+        _predictions.Add(prediction);
+        
         return true;
     }
 }

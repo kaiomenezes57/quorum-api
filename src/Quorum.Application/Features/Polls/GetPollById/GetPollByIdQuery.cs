@@ -5,4 +5,4 @@ using Quorum.Application.Shared.Responses;
 namespace Quorum.Application.Features.Polls.GetPollById;
 
 public record GetPollByIdQuery(Guid PollId) : 
-    IRequest<DefaultResponse<PollResponseDto?>>;
+    IRequest<WebResponse<PollResponseDto?>>;
