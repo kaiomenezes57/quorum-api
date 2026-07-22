@@ -33,24 +33,21 @@ public class Option : BaseEntity
 
         return true;
     }
-
-    public bool RemoveVote(Guid userId)
-    {
-        if (_votes.All(v => v.UserId != userId))
-            return false;
-        
-        _votes.RemoveAll(v => v.UserId == userId);
-        return true;
-    }
-
+    
     public bool AddPrediction(Guid userId)
     {
-        if (_predictions.Any(p => p.UserId == userId))
+        if (_predictions.Any(v => v.UserId == userId))
             return false;
         
         var prediction = new Prediction(userId, PollId, Id);
         _predictions.Add(prediction);
         
         return true;
+    }
+
+    public bool RemovePrediction(Guid predictionId)
+    {
+        return _predictions
+            .RemoveAll(p => p.Id == predictionId) > 0;
     }
 }

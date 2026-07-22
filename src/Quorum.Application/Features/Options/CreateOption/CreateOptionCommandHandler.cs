@@ -16,6 +16,10 @@ public class CreateOptionCommandHandler(IPollRepository repository, IUnitOfWork 
         if (poll is null)
             return WebResponse<string>
                 .Failure("Poll does not exist.")!;
+
+        if (poll.UserId != request.UserId)
+            return WebResponse<string>
+                .Failure("Poll does not belong to this user.")!;
         
         if (!poll.AddOption(request.Name))
             return WebResponse<string>

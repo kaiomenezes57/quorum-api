@@ -88,19 +88,6 @@ public class Poll : BaseEntity
         return true;
     }
 
-    public bool RemoveVote(Guid optionId, Guid userId)
-    {
-        if (_options.Find(o => o.Id == optionId) 
-            is not { } option) 
-            return false;
-
-        if (!option.RemoveVote(userId))
-            return false;
-
-        UpdateLastUpdatedAt();
-        return true;
-    }
-
     public bool AddPrediction(Guid optionId, Guid userId)
     {
         if (_options.Find(o => o.Id == optionId) 
@@ -110,8 +97,19 @@ public class Poll : BaseEntity
         if (!option.AddPrediction(userId))
             return false;
         
+        RemoveAllOtherUserPredictions();
         UpdateLastUpdatedAt();
         return true;
+
+        void RemoveAllOtherUserPredictions()
+        {
+            _options
+                .SelectMany(o => 
+                    o.Predictions.Where(p => 
+                        p.UserId == userId && p.OptionId != optionId)) 
+                .ToList()
+                .ForEach(p => option.RemovePrediction(p.Id));
+        }
     }
 
     private bool IsFinished()
