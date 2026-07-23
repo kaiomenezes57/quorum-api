@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Quorum.Application.Features.Polls.Services.Points;
 
 namespace Quorum.Application;
 
@@ -11,5 +12,7 @@ public static class DependencyInjection
             cfg.RegisterServicesFromAssembly(
                 typeof(DependencyInjection).Assembly);
         });
+        
+        services.AddScoped<IPointsService, PointsService>();
     }
 }

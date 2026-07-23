@@ -7,6 +7,9 @@ public class User : BaseEntity
     public string Name { get; private set; }
     public string Email { get; private set; }
     public Password Password { get; }
+    
+    public int PredictionPoints { get; private set; }
+    private const int POINTS_PER_CORRECT_PREDICTION = 100;
 
     public IReadOnlyList<Poll> Polls => _polls.AsReadOnly();
     private readonly List<Poll> _polls = [];
@@ -27,6 +30,17 @@ public class User : BaseEntity
         Name = name;
         Email = email;
         Password = Password.Create(passwordHash);
+    }
+
+    public void AddPredictionPoints() 
+        => PredictionPoints += POINTS_PER_CORRECT_PREDICTION;
+    
+    public void RemovePoints(int points)
+    {
+        PredictionPoints -= points;
+        
+        if (PredictionPoints < 0)
+            PredictionPoints = 0;
     }
 
     public bool VerifyPassword(string plainTextPassword) 

@@ -15,6 +15,14 @@ public class UserRepository(AppDbContext context) : IUserRepository
     public async Task<User?> GetByEmailAsync(string email) 
         => await context.Users.FirstOrDefaultAsync(u => u.Email == email);
 
+    public async Task<User?> GetByIdAsync(Guid id)
+    {
+        return await context.Users
+            .Include(u => u.Polls)
+            .Include(u => u.Predictions)
+            .FirstOrDefaultAsync(u => u.Id == id);
+    }
+
     public async Task<User?> GetByUsernameAsync(string username) 
         => await context.Users.FirstOrDefaultAsync(u => u.Name == username);
 }
