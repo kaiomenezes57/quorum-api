@@ -43,8 +43,7 @@ public class Poll : BaseEntity
         Name = name;
         Description = description;
         
-        UpdateLastUpdatedAt();
-        
+        RefreshLastUpdatedAt();
         return true;
     }
 
@@ -56,8 +55,7 @@ public class Poll : BaseEntity
         var option = new Option(name, Id);
         _options.Add(option);
         
-        UpdateLastUpdatedAt();
-
+        RefreshLastUpdatedAt();
         return true;
     }
 
@@ -70,26 +68,27 @@ public class Poll : BaseEntity
         if (!_options.Remove(option)) 
             return false;
         
-        UpdateLastUpdatedAt();
+        RefreshLastUpdatedAt();
         return true;
     }
 
     public bool AddVote(Guid optionId, Guid userId)
     {
-        if (IsFinished())
-        {
-            SetPredictionsResults();
+        if (HasAchievedVotesGoal())
             return false;
-        }
 
-        if (_options.Find(o => o.Id == optionId)
-            is not { } option) 
+        if (_options.Find(o => o.Id == optionId) 
+            is not { } option)
             return false;
-        
+
         if (!option.AddVote(userId))
             return false;
-        
-        UpdateLastUpdatedAt();
+
+        RefreshLastUpdatedAt();
+
+        if (HasAchievedVotesGoal())
+            SetPredictionsResults();
+
         return true;
     }
 
@@ -102,26 +101,12 @@ public class Poll : BaseEntity
         if (!option.AddPrediction(userId))
             return false;
         
-        RemoveAllOtherUserPredictions();
-        UpdateLastUpdatedAt();
+        RefreshLastUpdatedAt();
         return true;
-
-        void RemoveAllOtherUserPredictions()
-        {
-            _options
-                .SelectMany(o => 
-                    o.Predictions.Where(p => 
-                        p.UserId == userId && p.OptionId != optionId)) 
-                .ToList()
-                .ForEach(p => option.RemovePrediction(p.Id));
-        }
     }
 
     private void SetPredictionsResults()
     {
-        if (_options.Count == 0)
-            return;
-
         foreach (var prediction in _options.SelectMany(o => o.Predictions))
             prediction.SetResult(PredictionResult.Failed);
 
@@ -133,12 +118,14 @@ public class Poll : BaseEntity
             prediction.SetResult(PredictionResult.Success);
     }
 
-    private bool IsFinished()
+    private bool HasAchievedVotesGoal()
     {
         var totalVotes = _options.Sum(o => o.Votes.Count);
         return totalVotes >= VoteGoal;
     }
     
-    private void UpdateLastUpdatedAt() 
-        => LastUpdatedAt = DateTime.UtcNow;
+    private void RefreshLastUpdatedAt()
+    {
+        LastUpdatedAt = DateTime.UtcNow;
+    }
 }
