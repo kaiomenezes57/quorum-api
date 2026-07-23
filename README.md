@@ -3,6 +3,8 @@
 Quorum is a poll/voting API with a twist: instead of just voting, each user can also **submit a prediction** for which option they think will win. Once a poll reaches its vote goal, predictions are automatically resolved as **Success** or **Failed** based on the actual winning option — laying the groundwork for a future points/rewards system for users who predict correctly.
 
 > ⚠️ This project is a work in progress. Core domain logic, authentication, and polling/voting/prediction flows are implemented; the points/rewards system and some features are still to come.
+>
+> ℹ️ The word `quorum` means: the minimum number of members required to make decisions, hold a valid vote, etc.
 
 ## Features
 
