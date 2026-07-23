@@ -44,10 +44,4 @@ public class Option : BaseEntity
         
         return true;
     }
-
-    public bool RemovePrediction(Guid predictionId)
-    {
-        return _predictions
-            .RemoveAll(p => p.Id == predictionId) > 0;
-    }
 }
