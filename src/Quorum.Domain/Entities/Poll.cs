@@ -1,4 +1,6 @@
-﻿using Quorum.Domain.Enums;
+﻿using System.Security.Principal;
+using Quorum.Domain.DomainEvents.Polls;
+using Quorum.Domain.Enums;
 
 namespace Quorum.Domain.Entities;
 
@@ -116,6 +118,8 @@ public class Poll : BaseEntity
         
         foreach (var prediction in winningOption.Predictions)
             prediction.SetResult(PredictionResult.Success);
+        
+        AddDomainEvent(new PollClosedEvent(Id, winningOption.Id));
     }
 
     private bool HasAchievedVotesGoal()
