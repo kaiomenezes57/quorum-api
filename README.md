@@ -35,11 +35,13 @@ Built with **Clean Architecture**, split into four projects:
 
 ## Running locally
 
+Open a terminal in the project's root folder and execute this command:
+
 ```bash
 docker compose up
 ```
 
-This spins up the API alongside a MySQL container.
+This spins up the API alongside a MySQL container. The requests will be now running on `http://localhost:8080` 
 
 ## Tests
 
