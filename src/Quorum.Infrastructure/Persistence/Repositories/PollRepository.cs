@@ -9,7 +9,6 @@ public class PollRepository(AppDbContext context) : IPollRepository
     public async Task CreateAsync(Poll poll)
     {
         await context.Polls.AddAsync(poll);
-        await context.SaveChangesAsync();
     }
 
     public async Task<IReadOnlyList<Poll>> GetAllAsync()

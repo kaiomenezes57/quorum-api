@@ -1,11 +1,12 @@
 ﻿using MediatR;
+using Quorum.Application.Interfaces;
 using Quorum.Application.Shared.Responses;
 using Quorum.Domain.Entities;
 using Quorum.Domain.Repositories;
 
 namespace Quorum.Application.Features.Auth.Register;
 
-public class RegisterCommandHandler(IUserRepository repository) : 
+public class RegisterCommandHandler(IUserRepository repository, IUnitOfWork unitOfWork) : 
     IRequestHandler<RegisterCommand, WebResponse<Guid>>
 {
     public async Task<WebResponse<Guid>> Handle(
@@ -27,6 +28,8 @@ public class RegisterCommandHandler(IUserRepository repository) :
             request.Password);
         
         await repository.CreateAsync(createdUser);
+
+        await unitOfWork.CommitAsync();
 
         return WebResponse<Guid>
             .Success(createdUser.Id);
