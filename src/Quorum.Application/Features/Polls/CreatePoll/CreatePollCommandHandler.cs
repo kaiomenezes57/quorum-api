@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Quorum.Application.Interfaces;
 using Quorum.Application.Shared.Responses;
 using Quorum.Domain.Entities;
 using Quorum.Domain.Repositories;

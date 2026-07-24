@@ -1,5 +1,4 @@
-﻿using System.Security.Principal;
-using Quorum.Domain.DomainEvents.Polls;
+﻿using Quorum.Domain.DomainEvents.Polls;
 using Quorum.Domain.Enums;
 
 namespace Quorum.Domain.Entities;
